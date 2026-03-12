@@ -1,0 +1,158 @@
+---
+title: "comparison of coding mutations"
+output: html_notebook
+---
+Notebook for performing comparisons of coding mutations between colibactin positive and
+colibactin negative crypts 
+dnds_annot_sum is derived from concatenation of per donor annotation of coding mutations
+using dNdSsc (Methods)
+
+# a : load in dnds all compi
+```{r}
+library(lmerTest)
+library(tidyverse)
+library(dplyr)
+library(stringr)
+```
+
+```{r}
+dnds_all_mutations <- read.csv("../Data/dnds_all_mutations.csv")
+crypt_signature_attributions <- read.csv('../Data/crypt_signature_attributions.csv')
+
+## combine crypt annotation of colibactin positive with dNdS outputs :
+colibactin_crypts <- crypt_signature_attributions %>%
+  select(patient,biopsy,crypt, biopsy_colibactin_pos,age,location,cohort)
+
+# combine with dNdS annotation :
+crypt_dnds_annot <- colibactin_crypts |>
+  left_join(dnds_all_mutations, by = c("sample"='sampleID')) |>
+  mutate(
+    Effect = case_when(
+      Effect == "nonsense" ~ "Nonsense",
+      Effect == "missense" ~ "Missense",
+      Effect %in% c("ess_splice", "5prime_UTR_ess_splice") ~ "Splice",
+      Type %in% c("Ind", "Del") ~ "Indels",
+      Effect %in% c(
+        "nc_variant", "intronic",
+        "5prime_UTR_variant", "3prime_UTR_variant"
+      ) ~ "non_coding",
+      TRUE ~ "Synonymous"
+    )
+  )
+crypt_dnds_annot$patient=as.factor(crypt_dnds_annot$patient)
+crypt_dnds_annot$biopsy=as.factor(crypt_dnds_annot$biopsy)
+crypt_dnds_annot$location=as.factor(crypt_dnds_annot$location)
+```
+
+```{r}
+## summarise for each crypt, the number of missense, nonsense, indels, synonymous  mutations:
+# create summary
+crypt_dnds_annot_sum <- crypt_dnds_annot %>%
+  group_by(sample, Effect) %>%
+  summarise(
+    patient=dplyr::first(patient),
+    biopsy=dplyr::first(biopsy),
+    muts = n(),
+    age=max(age),
+    biopsy_colibactin_pos = any(biopsy_colibactin_pos),
+    location=dplyr::first(location)) %>%
+  filter(Effect %in% c("Missense", "Nonsense", "Indels", "Synonymous"))%>%
+  mutate(Effect = factor( Effect, levels = c("Missense", "Nonsense", "Indels", "Synonymous"))) %>%
+  pivot_wider(names_from = Effect, values_from = muts)%>%
+  mutate(across(c('Indels','Missense','Synonymous','Nonsense'), ~ replace_na(.x,0)))%>%
+  gather(Effect,muts,-sample,-patient,-biopsy,-age,-biopsy_colibactin_pos,-location)%>%
+  arrange(sample)
+```
+
+## iii : test associations for mutations
+```{r}
+
+fit_effect_model <- function(effect) {
+  summary(lmer(muts ~ biopsy_colibactin_pos + age + (1 | patient) + (1 | location), data = crypt_dnds_annot_sum[crypt_dnds_annot_sum$Effect == effect,]))}
+
+ml_results <- list(
+  Indels      = fit_effect_model("Indels"),
+  Missense   = fit_effect_model("Missense"),
+  Nonsense   = fit_effect_model("Nonsense"),
+  Synonymous = fit_effect_model("Synonymous")
+)
+
+## extract p values from regression :
+extract_colibactin_p <- function(model_summary) {
+  coef_tab <- model_summary$coefficients
+  p <- coef_tab["biopsy_colibactin_posTRUE", "Pr(>|t|)"]
+}
+
+coding_p_df <- tibble(
+  Effect = names(ml_results),
+  pvalue = purrr::map_dbl(ml_results, extract_colibactin_p))%>%
+  mutate(Effect = factor(Effect, levels = c("Missense", "Nonsense", "Indels", "Synonymous")))
+
+## adjust pvalues using Benhamini Hochberg :
+coding_p_df$pvalue_adj=p.adjust(coding_p_df$pvalue,method='BH')
+coding_p_df$label=case_when(coding_p_df$pvalue_adj<0.001 ~'P < 0.001',
+                            TRUE~paste0('P = ',round(coding_p_df$pvalue_adj,digits=3)))
+
+## extract y coords for plots:
+y_coords<-crypt_dnds_annot_sum %>%
+      group_by(Effect) %>%
+      summarise(y = max(muts, na.rm = TRUE) * 1.10)
+
+coding_p_df <- coding_p_df %>%
+  left_join(y_coords, by = "Effect")
+print(coding_p_df)
+```
+
+## c : Figure 2.D: create a plot for comparison of coding mutations :
+```{r}
+svg('~/compare_coding_muts.svg',width=6, height=10)
+
+# intiialise plot 
+ggplot(crypt_dnds_annot_sum, aes(x = biopsy_colibactin_pos, y = muts)) +
+  
+  # create boxplot :
+  geom_boxplot(aes(fill = biopsy_colibactin_pos)) +
+  
+  # facet by effect
+  facet_wrap(~Effect, scales = "free", ncol = 2) +
+  
+  # add text for pvalues and associated brackets
+  geom_text(data = coding_p_df, aes(label = label, y = y, x = 1.5),fontface = "bold")+
+  geom_segment(data = coding_p_df, aes(x = 1, xend = 2, y = 0.96*y, yend = 0.96*y),color='grey20', inherit.aes = FALSE, size = 0.6) +
+  geom_segment(data = coding_p_df, aes(x = 1, xend = 1, y = 0.96*y, yend = 0.945*y),  color='grey20',inherit.aes = FALSE, size = 0.6) +
+  geom_segment(data = coding_p_df, aes(x = 2, xend = 2, y = 0.96*y, yend = 0.945*y),  color='grey20',inherit.aes = FALSE, size = 0.6) +
+  
+  # format x and fill scales 
+  scale_x_discrete(breaks = c(TRUE, FALSE), labels = c("Colibactin\nPositive", "Colibactin\nNegative")) +
+  scale_fill_manual(values = c('grey70','hotpink3')) +
+  
+  # add labels
+  labs(y = "Coding Sequence Mutations per Crypt", x = "Colibactin Mutagenesis Status") +
+  
+  # format theme
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(size = 14, face='bold',colour = "black"),
+    axis.text.y = element_text(size = 14,colour = "black"),
+    axis.title.y = element_text(size = 18, face = "bold"),
+    axis.title.x = element_blank(),
+    strip.text = element_text(size = 16, face = "bold"),
+    strip.placement = "inside",
+    strip.background = element_blank(),
+    legend.position = "none"
+  )
+dev.off()
+```
+
+
+## d : cross validate with driver genes :
+driver gene list taken from Cornish, A. J. et al. Nature, 2024
+```{r}
+## read in the list from cornish et al.
+driver_genes_list<-read_excel('../Data/41586_2024_7747_MOESM4_ESM.xlsx',sheet=5,skip=7)
+driver_genes<-driver_genes_list[1]
+
+## intersect with the dnds annot sum:
+drivers_count=nrow(crypt_dnds_annot[crypt_dnds_annot$Gene %in% driver_genes,])
+print(paste0('Drivers present : ', drivers_count,' drivers'))
+```
