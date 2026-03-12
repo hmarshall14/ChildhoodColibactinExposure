@@ -1,4 +1,4 @@
-patient,biopsy,age,sex,cohort,nationality,colonoscopy_results,colonoscopy_finding,treatment,location,site
+﻿patient,biopsy,age,sex,cohort,nationality,colonoscopy_results,colonoscopy_finding,treatment,location,site
 PD65106,PD65106c,15,MALE,Normal,UK,Histologically_Normal,Histologically_Normal,Nil,Sigmoid,Left
 PD65106,PD65106c,15,MALE,Normal,UK,Histologically_Normal,Histologically_Normal,Nil,Sigmoid,Left
 PD65106,PD65106c,15,MALE,Normal,UK,Histologically_Normal,Histologically_Normal,Nil,Sigmoid,Left
