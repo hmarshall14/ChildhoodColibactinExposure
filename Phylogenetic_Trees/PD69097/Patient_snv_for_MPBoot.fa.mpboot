@@ -1,0 +1,59 @@
+MPBoot 1.1.0 built Mar 23 2018
+
+Input file name: output_files/PD69097/Patient_snv_for_MPBoot.fa
+Type of analysis: Parsimony tree reconstruction + MPBoot bootstrap approximation (1000 replicates)
+Random seed number: 263549
+
+SEQUENCE ALIGNMENT
+------------------
+
+Input data: 4 sequences with 1146 nucleotide sites
+Number of constant sites: 808 (= 70.5061% of all sites)
+Number of site patterns: 24
+
+MAXIMUM PARSIMONY TREE
+-----------------------
+
+NOTE: Tree is UNROOTED although outgroup taxon 'Ancestral' is drawn at root
+Numbers in parentheses are  ultrafast bootstrap supports (%)
+
++--Ancestral
+|
+|  +--PD69097b_lo0003
++--| (98)
+|  +--PD69097b_lo0007
+|
++--PD69097b_lo0004
+
+Parsimony score of the tree: 339
+Tree in newick format:
+
+(Ancestral,(PD69097b_lo0003,PD69097b_lo0007)98,PD69097b_lo0004);
+
+CONSENSUS TREE
+--------------
+
+Consensus tree is constructed from 1000 bootstrap trees
+Branches with bootstrap support >0.000000% are kept (extended consensus)
+Numbers in parentheses are bootstrap supports (%)
+
++--Ancestral
+|
+|  +--PD69097b_lo0003
++--| (98)
+|  +--PD69097b_lo0007
+|
++--PD69097b_lo0004
+
+
+Consensus tree in newick format: 
+
+(Ancestral,(PD69097b_lo0003,PD69097b_lo0007)98,PD69097b_lo0004);
+
+TIME STAMP
+----------
+
+Date and time: Thu Mar  5 17:22:03 2026
+Total CPU time used: 0.542854 seconds (0h:0m:0s)
+Total wall-clock time used: 0.754252 seconds (0h:0m:0s)
+

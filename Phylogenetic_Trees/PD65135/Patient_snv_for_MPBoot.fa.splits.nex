@@ -1,0 +1,24 @@
+#nexus
+
+BEGIN Taxa;
+DIMENSIONS ntax=4;
+TAXLABELS
+[1] 'Ancestral'
+[2] 'PD65135b_lo0003'
+[3] 'PD65135b_lo0004'
+[4] 'PD65135b_lo0005'
+;
+END; [Taxa]
+
+BEGIN Splits;
+DIMENSIONS ntax=4 nsplits=5;
+FORMAT labels=no weights=yes confidences=no intervals=no;
+MATRIX
+	100	 2,
+	100	 3,
+	100	 4,
+	100	 1 2,
+	100	 1,
+;
+END; [Splits]
+

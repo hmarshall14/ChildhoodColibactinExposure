@@ -1,0 +1,91 @@
+MPBoot 1.1.0 built Mar 23 2018
+
+Input file name: output_files/PD68008/Patient_snv_for_MPBoot.fa
+Type of analysis: Parsimony tree reconstruction + MPBoot bootstrap approximation (1000 replicates)
+Random seed number: 677832
+
+SEQUENCE ALIGNMENT
+------------------
+
+Input data: 12 sequences with 8418 nucleotide sites
+Number of constant sites: 2618 (= 31.1% of all sites)
+Number of site patterns: 129
+
+MAXIMUM PARSIMONY TREE
+-----------------------
+
+NOTE: Tree is UNROOTED although outgroup taxon 'Ancestral' is drawn at root
+Numbers in parentheses are  ultrafast bootstrap supports (%)
+
++--Ancestral
+|
+|           +--PD68008b_lo0002
+|        +--| (76)
+|        |  +--PD68008c_lo0007
+|     +--| (12)
+|     |  |        +--PD68008b_lo0003
+|     |  |     +--| (100)
+|     |  |     |  +--PD68008b_lo0005
+|     |  |  +--| (99)
+|     |  |  |  +--PD68008b_lo0006
+|     |  +--| (100)
+|     |     +--PD68008b_lo0004
+|  +--| (7)
+|  |  +--PD68008c_lo0001
++--| (27)
+|  |     +--PD68008c_lo0002
+|  |  +--| (100)
+|  |  |  +--PD68008c_lo0003
+|  +--| (5)
+|     +--PD68008c_lo0005
+|
++--PD68008b_lo0007
+
+Parsimony score of the tree: 5808
+Tree in newick format:
+
+(Ancestral,((((PD68008b_lo0002,PD68008c_lo0007)76,(((PD68008b_lo0003,PD68008b_lo0005)100,PD68008b_lo0006)99,PD68008b_lo0004)100)12,PD68008c_lo0001)7,((PD68008c_lo0002,PD68008c_lo0003)100,PD68008c_lo0005)5)27,PD68008b_lo0007);
+
+CONSENSUS TREE
+--------------
+
+Consensus tree is constructed from 1000 bootstrap trees
+Branches with bootstrap support >0.000000% are kept (extended consensus)
+Numbers in parentheses are bootstrap supports (%)
+
++--Ancestral
+|
+|        +--PD68008b_lo0002
+|     +--| (76)
+|     |  +--PD68008c_lo0007
+|  +--| (12)
+|  |  |        +--PD68008b_lo0003
+|  |  |     +--| (100)
+|  |  |     |  +--PD68008b_lo0005
+|  |  |  +--| (99)
+|  |  |  |  +--PD68008b_lo0006
+|  |  +--| (100)
+|  |     +--PD68008b_lo0004
++--| (16)
+|  |     +--PD68008b_lo0007
+|  |  +--| (32)
+|  |  |  +--PD68008c_lo0005
+|  +--| (17)
+|     +--PD68008c_lo0001
+|
+|  +--PD68008c_lo0002
++--| (100)
+   +--PD68008c_lo0003
+
+
+Consensus tree in newick format: 
+
+(Ancestral,(((PD68008b_lo0002,PD68008c_lo0007)76,(((PD68008b_lo0003,PD68008b_lo0005)100,PD68008b_lo0006)99,PD68008b_lo0004)100)12,((PD68008b_lo0007,PD68008c_lo0005)32,PD68008c_lo0001)17)16,(PD68008c_lo0002,PD68008c_lo0003)100);
+
+TIME STAMP
+----------
+
+Date and time: Thu Mar  5 17:22:22 2026
+Total CPU time used: 10.9069 seconds (0h:0m:10s)
+Total wall-clock time used: 10.9387 seconds (0h:0m:10s)
+

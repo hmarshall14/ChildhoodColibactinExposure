@@ -1,0 +1,147 @@
+MPBoot 1.1.0 built Mar 23 2018
+
+Input file name: output_files/PD65140/Patient_snv_for_MPBoot.fa
+Type of analysis: Parsimony tree reconstruction + MPBoot bootstrap approximation (1000 replicates)
+Random seed number: 868726
+
+SEQUENCE ALIGNMENT
+------------------
+
+Input data: 26 sequences with 13826 nucleotide sites
+Number of constant sites: 5022 (= 36.3229% of all sites)
+Number of site patterns: 311
+
+MAXIMUM PARSIMONY TREE
+-----------------------
+
+NOTE: Tree is UNROOTED although outgroup taxon 'Ancestral' is drawn at root
+Numbers in parentheses are  ultrafast bootstrap supports (%)
+
++--Ancestral
+|
+|                 +--PD65140c_lo0003
+|              +--| (100)
+|              |  +--PD65140c_lo0012
+|           +--| (100)
+|           |  +--PD65140c_lo0022
+|        +--| (10)
+|        |  +--PD65140c_lo0005
+|     +--| (27)
+|     |  |  +--PD65140b_lo0016
+|     |  +--| (100)
+|     |     +--PD65140b_lo0017
+|  +--| (7)
+|  |  |        +--PD65140c_lo0004
+|  |  |     +--| (30)
+|  |  |     |  |  +--PD65140c_lo0006
+|  |  |     |  +--| (100)
+|  |  |     |     +--PD65140c_lo0007
+|  |  |  +--| (98)
+|  |  |  |  |     +--PD65140c_lo0010
+|  |  |  |  |  +--| (100)
+|  |  |  |  |  |  +--PD65140c_lo0020
+|  |  |  |  +--| (98)
+|  |  |  |     +--PD65140c_lo0011
+|  |  +--| (100)
+|  |     +--PD65140c_lo0017
++--| (17)
+|  +--PD65140c_lo0008
+|
+|                 +--PD65140b_lo0001
+|              +--| (100)
+|              |  +--PD65140b_lo0018
+|           +--| (100)
+|           |  |  +--PD65140b_lo0002
+|           |  +--| (100)
+|           |     +--PD65140b_lo0003
+|        +--| (99)
+|        |  |  +--PD65140b_lo0005
+|        |  +--| (100)
+|        |     +--PD65140b_lo0006
+|     +--| (99)
+|     |  |  +--PD65140b_lo0009
+|     |  +--| (33)
+|     |     +--PD65140b_lo0020
+|  +--| (100)
+|  |  |  +--PD65140b_lo0010
+|  |  +--| (100)
+|  |     +--PD65140b_lo0011
++--| (100)
+   +--PD65140b_lo0004
+
+Parsimony score of the tree: 8815
+Tree in newick format:
+
+(Ancestral,((((((PD65140c_lo0003,PD65140c_lo0012)100,PD65140c_lo0022)100,PD65140c_lo0005)10,(PD65140b_lo0016,PD65140b_lo0017)100)27,(((PD65140c_lo0004,(PD65140c_lo0006,PD65140c_lo0007)100)30,((PD65140c_lo0010,PD65140c_lo0020)100,PD65140c_lo0011)98)98,PD65140c_lo0017)100)7,PD65140c_lo0008)17,((((((PD65140b_lo0001,PD65140b_lo0018)100,(PD65140b_lo0002,PD65140b_lo0003)100)100,(PD65140b_lo0005,PD65140b_lo0006)100)99,(PD65140b_lo0009,PD65140b_lo0020)33)99,(PD65140b_lo0010,PD65140b_lo0011)100)100,PD65140b_lo0004)100);
+
+CONSENSUS TREE
+--------------
+
+Consensus tree is constructed from 1000 bootstrap trees
+Branches with bootstrap support >0.000000% are kept (extended consensus)
+Numbers in parentheses are bootstrap supports (%)
+
++--Ancestral
+|
+|              +--PD65140c_lo0003
+|           +--| (100)
+|           |  +--PD65140c_lo0012
+|        +--| (100)
+|        |  +--PD65140c_lo0022
+|     +--| (70)
+|     |  |  +--PD65140b_lo0016
+|     |  +--| (100)
+|     |     +--PD65140b_lo0017
+|  +--| (27)
+|  |  +--PD65140c_lo0005
++--| (17)
+|  |           +--PD65140c_lo0004
+|  |        +--| (46)
+|  |        |  |     +--PD65140c_lo0010
+|  |        |  |  +--| (100)
+|  |        |  |  |  +--PD65140c_lo0020
+|  |        |  +--| (98)
+|  |        |     +--PD65140c_lo0011
+|  |     +--| (98)
+|  |     |  |  +--PD65140c_lo0006
+|  |     |  +--| (100)
+|  |     |     +--PD65140c_lo0007
+|  |  +--| (100)
+|  |  |  +--PD65140c_lo0017
+|  +--| (17)
+|     +--PD65140c_lo0008
+|
+|                    +--PD65140b_lo0001
+|                 +--| (100)
+|                 |  +--PD65140b_lo0018
+|              +--| (100)
+|              |  |  +--PD65140b_lo0002
+|              |  +--| (100)
+|              |     +--PD65140b_lo0003
+|           +--| (99)
+|           |  |  +--PD65140b_lo0005
+|           |  +--| (100)
+|           |     +--PD65140b_lo0006
+|        +--| (41)
+|        |  +--PD65140b_lo0020
+|     +--| (99)
+|     |  +--PD65140b_lo0009
+|  +--| (100)
+|  |  |  +--PD65140b_lo0010
+|  |  +--| (100)
+|  |     +--PD65140b_lo0011
++--| (100)
+   +--PD65140b_lo0004
+
+
+Consensus tree in newick format: 
+
+(Ancestral,(((((PD65140c_lo0003,PD65140c_lo0012)100,PD65140c_lo0022)100,(PD65140b_lo0016,PD65140b_lo0017)100)70,PD65140c_lo0005)27,((((PD65140c_lo0004,((PD65140c_lo0010,PD65140c_lo0020)100,PD65140c_lo0011)98)46,(PD65140c_lo0006,PD65140c_lo0007)100)98,PD65140c_lo0017)100,PD65140c_lo0008)17)17,(((((((PD65140b_lo0001,PD65140b_lo0018)100,(PD65140b_lo0002,PD65140b_lo0003)100)100,(PD65140b_lo0005,PD65140b_lo0006)100)99,PD65140b_lo0020)41,PD65140b_lo0009)99,(PD65140b_lo0010,PD65140b_lo0011)100)100,PD65140b_lo0004)100);
+
+TIME STAMP
+----------
+
+Date and time: Thu Mar  5 17:23:21 2026
+Total CPU time used: 32.5305 seconds (0h:0m:32s)
+Total wall-clock time used: 32.606 seconds (0h:0m:32s)
+

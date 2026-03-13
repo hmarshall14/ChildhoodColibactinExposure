@@ -1,0 +1,115 @@
+MPBoot 1.1.0 built Mar 23 2018
+
+Input file name: output_files/PD69095/Patient_snv_for_MPBoot.fa
+Type of analysis: Parsimony tree reconstruction + MPBoot bootstrap approximation (1000 replicates)
+Random seed number: 808884
+
+SEQUENCE ALIGNMENT
+------------------
+
+Input data: 18 sequences with 15202 nucleotide sites
+Number of constant sites: 3569 (= 23.4772% of all sites)
+Number of site patterns: 242
+
+MAXIMUM PARSIMONY TREE
+-----------------------
+
+NOTE: Tree is UNROOTED although outgroup taxon 'Ancestral' is drawn at root
+Numbers in parentheses are  ultrafast bootstrap supports (%)
+
++--Ancestral
+|
+|        +--PD69095b_lo0002
+|     +--| (100)
+|     |  +--PD69095b_lo0003
+|  +--| (100)
+|  |  +--PD69095b_lo0004
++--| (100)
+|  +--PD69095b_lo0013
+|
+|                 +--PD69095b_lo0005
+|              +--| (95)
+|              |  +--PD69095b_lo0008
+|           +--| (62)
+|           |  +--PD69095b_lo0018
+|        +--| (100)
+|        |  |  +--PD69095b_lo0014
+|        |  +--| (100)
+|        |     +--PD69095b_lo0015
+|     +--| (100)
+|     |  +--PD69095b_lo0007
+|  +--| (4)
+|  |  |  +--PD69095b_lo0009
+|  |  +--| (99)
+|  |     |  +--PD69095b_lo0017
+|  |     +--| (26)
+|  |        +--PD69095b_lo0019
++--| (21)
+   |     +--PD69095b_lo0010
+   |  +--| (100)
+   |  |  +--PD69095b_lo0011
+   +--| (100)
+      |  +--PD69095b_lo0012
+      +--| (100)
+         +--PD69095b_lo0020
+
+Parsimony score of the tree: 11642
+Tree in newick format:
+
+(Ancestral,(((PD69095b_lo0002,PD69095b_lo0003)100,PD69095b_lo0004)100,PD69095b_lo0013)100,((((((PD69095b_lo0005,PD69095b_lo0008)95,PD69095b_lo0018)62,(PD69095b_lo0014,PD69095b_lo0015)100)100,PD69095b_lo0007)100,(PD69095b_lo0009,(PD69095b_lo0017,PD69095b_lo0019)26)99)4,((PD69095b_lo0010,PD69095b_lo0011)100,(PD69095b_lo0012,PD69095b_lo0020)100)100)21);
+
+CONSENSUS TREE
+--------------
+
+Consensus tree is constructed from 1000 bootstrap trees
+Branches with bootstrap support >0.000000% are kept (extended consensus)
+Numbers in parentheses are bootstrap supports (%)
+
++--Ancestral
+|
+|           +--PD69095b_lo0002
+|        +--| (100)
+|        |  +--PD69095b_lo0003
+|     +--| (100)
+|     |  +--PD69095b_lo0004
+|  +--| (100)
+|  |  +--PD69095b_lo0013
++--| (55)
+|  |              +--PD69095b_lo0005
+|  |           +--| (95)
+|  |           |  +--PD69095b_lo0008
+|  |        +--| (62)
+|  |        |  +--PD69095b_lo0018
+|  |     +--| (100)
+|  |     |  |  +--PD69095b_lo0014
+|  |     |  +--| (100)
+|  |     |     +--PD69095b_lo0015
+|  |  +--| (100)
+|  |  |  +--PD69095b_lo0007
+|  +--| (80)
+|     |     +--PD69095b_lo0010
+|     |  +--| (100)
+|     |  |  +--PD69095b_lo0011
+|     +--| (100)
+|        |  +--PD69095b_lo0012
+|        +--| (100)
+|           +--PD69095b_lo0020
+|
+|     +--PD69095b_lo0009
+|  +--| (47)
+|  |  +--PD69095b_lo0017
++--| (99)
+   +--PD69095b_lo0019
+
+
+Consensus tree in newick format: 
+
+(Ancestral,((((PD69095b_lo0002,PD69095b_lo0003)100,PD69095b_lo0004)100,PD69095b_lo0013)100,(((((PD69095b_lo0005,PD69095b_lo0008)95,PD69095b_lo0018)62,(PD69095b_lo0014,PD69095b_lo0015)100)100,PD69095b_lo0007)100,((PD69095b_lo0010,PD69095b_lo0011)100,(PD69095b_lo0012,PD69095b_lo0020)100)100)80)55,((PD69095b_lo0009,PD69095b_lo0017)47,PD69095b_lo0019)99);
+
+TIME STAMP
+----------
+
+Date and time: Thu Mar  5 17:23:03 2026
+Total CPU time used: 31.0093 seconds (0h:0m:31s)
+Total wall-clock time used: 31.0807 seconds (0h:0m:31s)
+

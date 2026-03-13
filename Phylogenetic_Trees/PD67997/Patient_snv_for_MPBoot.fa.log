@@ -1,0 +1,95 @@
+MPBoot version 1.1.0 for Linux 64-bit built Mar 23 2018
+Copyright (c) 2016 Diep Thi Hoang, Le Sy Vinh, Tomas Flouri, Alexandros Stamatakis, Arndt von Haeseler and Bui Quang Minh.
+
+Host:    node-11-4-4 (AVX512F, FMA3, 810 GB RAM)
+Command: mpboot -s output_files/PD67997/Patient_snv_for_MPBoot.fa -bb 1000
+Seed:    915369 (Using SPRNG - Scalable Parallel Random Number Generator)
+Time:    Thu Mar  5 17:22:03 2026
+Kernel:  AVX
+
+Reading alignment file output_files/PD67997/Patient_snv_for_MPBoot.fa ... Fasta format detected
+Alignment most likely contains DNA/RNA sequences
+Alignment has 9 sequences with 13830 columns and 142 patterns
+ID   Sequence         #Gap/Ambiguity
+1    Ancestral        0    (0.000%)	1
+2    PD67997c_lo0002  483  (3.492%)	2
+3    PD67997c_lo0004  383  (2.769%)	2
+4    PD67997c_lo0005  256  (1.851%)	2
+5    PD67997c_lo0007  1055 (7.628%)	2
+6    PD67997c_lo0012  225  (1.627%)	2
+7    PD67997c_lo0013  389  (2.813%)	2
+8    PD67997c_lo0014  310  (2.242%)	2
+9    PD67997c_lo0015  251  (1.815%)	2
+**** TOTAL            3352 (2.693%)
+Time for parsimony tree construction: 0.000 seconds
+Parsimony score: 8883
+Reordering patterns in alignment by decreasing order of pattern parsimony... 0.000 seconds
+
+Create initial parsimony tree by phylogenetic likelihood library (PLL)... 0.001 seconds
+Generating 1000 samples for bootstrap approximation...
+WARNING: C is not present in alignment that may cause numerical problems
+WARNING: G is not present in alignment that may cause numerical problems
+
+NOTE: 0.195 MB RAM is required!
+Current best tree score: 8883
+
+Generating 99 parsimony trees... (99 duplicated parsimony trees)
+CPU time: 0
+Finish initializing candidate tree set. Number of distinct locally optimal trees: 1
+Current best score: 8883 / CPU time: 0
+
+Time: 0h:0m:0s
+NOTE: REPS computation is segmented into 2 parts for speed...
+segment#1 ends at 16
+segment#2 ends at 100
+0 seconds.
+RATCHET Iteration 10 / Score: 8883 / Time: 0h:0m:0s
+RATCHET Iteration 20 / Score: 8883 / Time: 0h:0m:0s (0h:0m:2s left)
+RATCHET Iteration 30 / Score: 8883 / Time: 0h:0m:0s (0h:0m:2s left)
+RATCHET Iteration 40 / Score: 8883 / Time: 0h:0m:1s (0h:0m:1s left)
+RATCHET Iteration 50 / Score: 8883 / Time: 0h:0m:1s (0h:0m:1s left)
+RATCHET Iteration 60 / Score: 8883 / Time: 0h:0m:1s (0h:0m:1s left)
+RATCHET Iteration 70 / Score: 8883 / Time: 0h:0m:1s (0h:0m:0s left)
+RATCHET Iteration 80 / Score: 8883 / Time: 0h:0m:1s (0h:0m:0s left)
+RATCHET Iteration 90 / Score: 8883 / Time: 0h:0m:2s (0h:0m:0s left)
+RATCHET Iteration 100 / Score: 8883 / Time: 0h:0m:2s (0h:0m:0s left)
+Optimizing bootstrap trees ...
+100 replicates done
+200 replicates done
+300 replicates done
+400 replicates done
+500 replicates done
+600 replicates done
+700 replicates done
+800 replicates done
+900 replicates done
+1000 replicates done
+CPU Time used:  5 sec.
+NOTE: At the end, 3156 bootstrap candidate trees evaluated.
+Scores of best 5 trees: 
+8883 
+BEST SCORE FOUND : 8883
+Creating bootstrap support values...
+Split supports printed to NEXUS file output_files/PD67997/Patient_snv_for_MPBoot.fa.splits.nex
+
+CPU time used for tree search: 7.233 sec (0h:0m:7s)
+Wall-clock time used for tree search: 7.242 sec (0h:0m:7s)
+Total CPU time used: 7.375 sec (0h:0m:7s)
+Total wall-clock time used: 7.385 sec (0h:0m:7s)
+
+Computing bootstrap consensus tree...
+Reading input file output_files/PD67997/Patient_snv_for_MPBoot.fa.splits.nex...
+9 taxa and 25 splits.
+Consensus tree written to output_files/PD67997/Patient_snv_for_MPBoot.fa.contree
+Parsimony score of consensus tree: 8883
+
+Analysis results written to: 
+  MPBoot report:                 output_files/PD67997/Patient_snv_for_MPBoot.fa.mpboot
+  Maximum-parsimony  tree:       output_files/PD67997/Patient_snv_for_MPBoot.fa.treefile
+
+Maximum parsimony bootstrap approximation results written to:
+  Split support values:          output_files/PD67997/Patient_snv_for_MPBoot.fa.splits.nex
+  Consensus tree:                output_files/PD67997/Patient_snv_for_MPBoot.fa.contree
+  Screen log file:               output_files/PD67997/Patient_snv_for_MPBoot.fa.log
+
+Date and Time: Thu Mar  5 17:22:11 2026

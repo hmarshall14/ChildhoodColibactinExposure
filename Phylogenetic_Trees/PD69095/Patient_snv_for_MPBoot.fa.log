@@ -1,0 +1,104 @@
+MPBoot version 1.1.0 for Linux 64-bit built Mar 23 2018
+Copyright (c) 2016 Diep Thi Hoang, Le Sy Vinh, Tomas Flouri, Alexandros Stamatakis, Arndt von Haeseler and Bui Quang Minh.
+
+Host:    node-11-5-3 (AVX512F, FMA3, 810 GB RAM)
+Command: mpboot -s output_files/PD69095/Patient_snv_for_MPBoot.fa -bb 1000
+Seed:    808884 (Using SPRNG - Scalable Parallel Random Number Generator)
+Time:    Thu Mar  5 17:22:32 2026
+Kernel:  AVX
+
+Reading alignment file output_files/PD69095/Patient_snv_for_MPBoot.fa ... Fasta format detected
+Alignment most likely contains DNA/RNA sequences
+Alignment has 18 sequences with 15202 columns and 242 patterns
+ID   Sequence         #Gap/Ambiguity
+1    Ancestral        0    (0.000%)	1
+2    PD69095b_lo0002  99   (0.651%)	2
+3    PD69095b_lo0003  99   (0.651%)	2
+4    PD69095b_lo0004  61   (0.401%)	2
+5    PD69095b_lo0005  683  (4.493%)	2
+6    PD69095b_lo0007  154  (1.013%)	2
+7    PD69095b_lo0008  254  (1.671%)	2
+8    PD69095b_lo0009  390  (2.565%)	2
+9    PD69095b_lo0010  91   (0.599%)	2
+10   PD69095b_lo0011  136  (0.895%)	2
+11   PD69095b_lo0012  124  (0.816%)	2
+12   PD69095b_lo0013  350  (2.302%)	2
+13   PD69095b_lo0014  121  (0.796%)	2
+14   PD69095b_lo0015  159  (1.046%)	2
+15   PD69095b_lo0017  193  (1.270%)	2
+16   PD69095b_lo0018  114  (0.750%)	2
+17   PD69095b_lo0019  116  (0.763%)	2
+18   PD69095b_lo0020  191  (1.256%)	2
+**** TOTAL            3335 (1.219%)
+Time for parsimony tree construction: 0.001 seconds
+Parsimony score: 11642
+Reordering patterns in alignment by decreasing order of pattern parsimony... 0.000 seconds
+
+Create initial parsimony tree by phylogenetic likelihood library (PLL)... 0.003 seconds
+Generating 1000 samples for bootstrap approximation...
+WARNING: C is not present in alignment that may cause numerical problems
+WARNING: G is not present in alignment that may cause numerical problems
+
+NOTE: 0.719 MB RAM is required!
+Current best tree score: 11642
+
+Generating 99 parsimony trees... (79 duplicated parsimony trees)
+CPU time: 0
+Finish initializing candidate tree set. Number of distinct locally optimal trees: 21
+Current best score: 11642 / CPU time: 0
+
+Time: 0h:0m:0s
+NOTE: REPS computation is segmented into 2 parts for speed...
+segment#1 ends at 16
+segment#2 ends at 134
+0 seconds.
+RATCHET Iteration 10 / Score: 11642 / Time: 0h:0m:2s
+RATCHET Iteration 20 / Score: 11642 / Time: 0h:0m:3s (0h:0m:14s left)
+RATCHET Iteration 30 / Score: 11642 / Time: 0h:0m:4s (0h:0m:12s left)
+RATCHET Iteration 40 / Score: 11642 / Time: 0h:0m:6s (0h:0m:10s left)
+RATCHET Iteration 50 / Score: 11642 / Time: 0h:0m:7s (0h:0m:8s left)
+RATCHET Iteration 60 / Score: 11642 / Time: 0h:0m:9s (0h:0m:6s left)
+RATCHET Iteration 70 / Score: 11642 / Time: 0h:0m:10s (0h:0m:4s left)
+RATCHET Iteration 80 / Score: 11642 / Time: 0h:0m:12s (0h:0m:3s left)
+RATCHET Iteration 90 / Score: 11642 / Time: 0h:0m:13s (0h:0m:1s left)
+RATCHET Iteration 100 / Score: 11642 / Time: 0h:0m:14s (0h:0m:0s left)
+Optimizing bootstrap trees ...
+100 replicates done
+200 replicates done
+300 replicates done
+400 replicates done
+500 replicates done
+600 replicates done
+700 replicates done
+800 replicates done
+900 replicates done
+1000 replicates done
+CPU Time used:  16 sec.
+NOTE: At the end, 6678 bootstrap candidate trees evaluated.
+Scores of best 5 trees: 
+11642 11642 11642 11642 11642 
+BEST SCORE FOUND : 11642
+Creating bootstrap support values...
+Split supports printed to NEXUS file output_files/PD69095/Patient_snv_for_MPBoot.fa.splits.nex
+
+CPU time used for tree search: 30.833 sec (0h:0m:30s)
+Wall-clock time used for tree search: 30.893 sec (0h:0m:30s)
+Total CPU time used: 31.009 sec (0h:0m:31s)
+Total wall-clock time used: 31.074 sec (0h:0m:31s)
+
+Computing bootstrap consensus tree...
+Reading input file output_files/PD69095/Patient_snv_for_MPBoot.fa.splits.nex...
+18 taxa and 70 splits.
+Consensus tree written to output_files/PD69095/Patient_snv_for_MPBoot.fa.contree
+Parsimony score of consensus tree: 11642
+
+Analysis results written to: 
+  MPBoot report:                 output_files/PD69095/Patient_snv_for_MPBoot.fa.mpboot
+  Maximum-parsimony  tree:       output_files/PD69095/Patient_snv_for_MPBoot.fa.treefile
+
+Maximum parsimony bootstrap approximation results written to:
+  Split support values:          output_files/PD69095/Patient_snv_for_MPBoot.fa.splits.nex
+  Consensus tree:                output_files/PD69095/Patient_snv_for_MPBoot.fa.contree
+  Screen log file:               output_files/PD69095/Patient_snv_for_MPBoot.fa.log
+
+Date and Time: Thu Mar  5 17:23:03 2026

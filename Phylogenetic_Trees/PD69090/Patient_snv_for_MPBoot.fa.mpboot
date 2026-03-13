@@ -1,0 +1,71 @@
+MPBoot 1.1.0 built Mar 23 2018
+
+Input file name: output_files/PD69090/Patient_snv_for_MPBoot.fa
+Type of analysis: Parsimony tree reconstruction + MPBoot bootstrap approximation (1000 replicates)
+Random seed number: 562925
+
+SEQUENCE ALIGNMENT
+------------------
+
+Input data: 7 sequences with 6639 nucleotide sites
+Number of constant sites: 2997 (= 45.1423% of all sites)
+Number of site patterns: 81
+
+MAXIMUM PARSIMONY TREE
+-----------------------
+
+NOTE: Tree is UNROOTED although outgroup taxon 'Ancestral' is drawn at root
+Numbers in parentheses are  ultrafast bootstrap supports (%)
+
++--Ancestral
+|
+|     +--PD69090b_lo0002
+|  +--| (100)
+|  |  +--PD69090b_lo0012
++--| (80)
+|  |     +--PD69090b_lo0004
+|  |  +--| (100)
+|  |  |  +--PD69090b_lo0009
+|  +--| (100)
+|     +--PD69090b_lo0010
+|
++--PD69090b_lo0014
+
+Parsimony score of the tree: 3649
+Tree in newick format:
+
+(Ancestral,((PD69090b_lo0002,PD69090b_lo0012)100,((PD69090b_lo0004,PD69090b_lo0009)100,PD69090b_lo0010)100)80,PD69090b_lo0014);
+
+CONSENSUS TREE
+--------------
+
+Consensus tree is constructed from 1000 bootstrap trees
+Branches with bootstrap support >0.000000% are kept (extended consensus)
+Numbers in parentheses are bootstrap supports (%)
+
++--Ancestral
+|
+|     +--PD69090b_lo0002
+|  +--| (100)
+|  |  +--PD69090b_lo0012
++--| (80)
+|  |     +--PD69090b_lo0004
+|  |  +--| (100)
+|  |  |  +--PD69090b_lo0009
+|  +--| (100)
+|     +--PD69090b_lo0010
+|
++--PD69090b_lo0014
+
+
+Consensus tree in newick format: 
+
+(Ancestral,((PD69090b_lo0002,PD69090b_lo0012)100,((PD69090b_lo0004,PD69090b_lo0009)100,PD69090b_lo0010)100)80,PD69090b_lo0014);
+
+TIME STAMP
+----------
+
+Date and time: Thu Mar  5 17:22:05 2026
+Total CPU time used: 4.65686 seconds (0h:0m:4s)
+Total wall-clock time used: 4.67243 seconds (0h:0m:4s)
+

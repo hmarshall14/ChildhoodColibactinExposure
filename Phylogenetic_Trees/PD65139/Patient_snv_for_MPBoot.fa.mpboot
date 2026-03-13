@@ -1,0 +1,87 @@
+MPBoot 1.1.0 built Mar 23 2018
+
+Input file name: output_files/PD65139/Patient_snv_for_MPBoot.fa
+Type of analysis: Parsimony tree reconstruction + MPBoot bootstrap approximation (1000 replicates)
+Random seed number: 411493
+
+SEQUENCE ALIGNMENT
+------------------
+
+Input data: 11 sequences with 6727 nucleotide sites
+Number of constant sites: 2327 (= 34.5919% of all sites)
+Number of site patterns: 122
+
+MAXIMUM PARSIMONY TREE
+-----------------------
+
+NOTE: Tree is UNROOTED although outgroup taxon 'Ancestral' is drawn at root
+Numbers in parentheses are  ultrafast bootstrap supports (%)
+
++--Ancestral
+|
+|           +--PD65139c_lo0003
+|        +--| (100)
+|        |  +--PD65139c_lo0004
+|     +--| (100)
+|     |  |     +--PD65139c_lo0005
+|     |  |  +--| (100)
+|     |  |  |  +--PD65139c_lo0006
+|     |  +--| (100)
+|     |     +--PD65139c_lo0008
+|  +--| (100)
+|  |  |  +--PD65139c_lo0007
+|  |  +--| (100)
+|  |     +--PD65139c_lo0009
++--| (31)
+|  +--PD65139c_lo0012
+|
+|  +--PD65139c_lo0016
++--| (100)
+   +--PD65139c_lo0017
+
+Parsimony score of the tree: 4402
+Tree in newick format:
+
+(Ancestral,((((PD65139c_lo0003,PD65139c_lo0004)100,((PD65139c_lo0005,PD65139c_lo0006)100,PD65139c_lo0008)100)100,(PD65139c_lo0007,PD65139c_lo0009)100)100,PD65139c_lo0012)31,(PD65139c_lo0016,PD65139c_lo0017)100);
+
+CONSENSUS TREE
+--------------
+
+Consensus tree is constructed from 1000 bootstrap trees
+Branches with bootstrap support >0.000000% are kept (extended consensus)
+Numbers in parentheses are bootstrap supports (%)
+
++--Ancestral
+|
+|           +--PD65139c_lo0003
+|        +--| (100)
+|        |  +--PD65139c_lo0004
+|     +--| (100)
+|     |  |     +--PD65139c_lo0005
+|     |  |  +--| (100)
+|     |  |  |  +--PD65139c_lo0006
+|     |  +--| (100)
+|     |     +--PD65139c_lo0008
+|  +--| (100)
+|  |  |  +--PD65139c_lo0007
+|  |  +--| (100)
+|  |     +--PD65139c_lo0009
++--| (40)
+|  |  +--PD65139c_lo0016
+|  +--| (100)
+|     +--PD65139c_lo0017
+|
++--PD65139c_lo0012
+
+
+Consensus tree in newick format: 
+
+(Ancestral,((((PD65139c_lo0003,PD65139c_lo0004)100,((PD65139c_lo0005,PD65139c_lo0006)100,PD65139c_lo0008)100)100,(PD65139c_lo0007,PD65139c_lo0009)100)100,(PD65139c_lo0016,PD65139c_lo0017)100)40,PD65139c_lo0012);
+
+TIME STAMP
+----------
+
+Date and time: Thu Mar  5 17:22:17 2026
+Total CPU time used: 7.98089 seconds (0h:0m:7s)
+Total wall-clock time used: 8.00852 seconds (0h:0m:8s)
+

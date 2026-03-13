@@ -1,0 +1,79 @@
+MPBoot 1.1.0 built Mar 23 2018
+
+Input file name: output_files/PD69096/Patient_snv_for_MPBoot.fa
+Type of analysis: Parsimony tree reconstruction + MPBoot bootstrap approximation (1000 replicates)
+Random seed number: 145317
+
+SEQUENCE ALIGNMENT
+------------------
+
+Input data: 9 sequences with 3294 nucleotide sites
+Number of constant sites: 1034 (= 31.3904% of all sites)
+Number of site patterns: 112
+
+MAXIMUM PARSIMONY TREE
+-----------------------
+
+NOTE: Tree is UNROOTED although outgroup taxon 'Ancestral' is drawn at root
+Numbers in parentheses are  ultrafast bootstrap supports (%)
+
++--Ancestral
+|
+|  +--PD69096b_lo0004
++--| (98)
+|  |  +--PD69096b_lo0006
+|  +--| (48)
+|     +--PD69096b_lo0015
+|
+|     +--PD69096b_lo0005
+|  +--| (99)
+|  |  |     +--PD69096b_lo0008
+|  |  |  +--| (100)
+|  |  |  |  +--PD69096b_lo0009
+|  |  +--| (100)
+|  |     +--PD69096b_lo0012
++--| (98)
+   +--PD69096b_lo0011
+
+Parsimony score of the tree: 2271
+Tree in newick format:
+
+(Ancestral,(PD69096b_lo0004,(PD69096b_lo0006,PD69096b_lo0015)48)98,((PD69096b_lo0005,((PD69096b_lo0008,PD69096b_lo0009)100,PD69096b_lo0012)100)99,PD69096b_lo0011)98);
+
+CONSENSUS TREE
+--------------
+
+Consensus tree is constructed from 1000 bootstrap trees
+Branches with bootstrap support >0.000000% are kept (extended consensus)
+Numbers in parentheses are bootstrap supports (%)
+
++--Ancestral
+|
+|     +--PD69096b_lo0004
+|  +--| (52)
+|  |  +--PD69096b_lo0006
++--| (98)
+|  +--PD69096b_lo0015
+|
+|     +--PD69096b_lo0005
+|  +--| (99)
+|  |  |     +--PD69096b_lo0008
+|  |  |  +--| (100)
+|  |  |  |  +--PD69096b_lo0009
+|  |  +--| (100)
+|  |     +--PD69096b_lo0012
++--| (98)
+   +--PD69096b_lo0011
+
+
+Consensus tree in newick format: 
+
+(Ancestral,((PD69096b_lo0004,PD69096b_lo0006)52,PD69096b_lo0015)98,((PD69096b_lo0005,((PD69096b_lo0008,PD69096b_lo0009)100,PD69096b_lo0012)100)99,PD69096b_lo0011)98);
+
+TIME STAMP
+----------
+
+Date and time: Thu Mar  5 17:22:07 2026
+Total CPU time used: 2.07436 seconds (0h:0m:2s)
+Total wall-clock time used: 2.08336 seconds (0h:0m:2s)
+

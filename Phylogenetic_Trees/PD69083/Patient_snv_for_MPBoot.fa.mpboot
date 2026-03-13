@@ -1,0 +1,87 @@
+MPBoot 1.1.0 built Mar 23 2018
+
+Input file name: output_files/PD69083/Patient_snv_for_MPBoot.fa
+Type of analysis: Parsimony tree reconstruction + MPBoot bootstrap approximation (1000 replicates)
+Random seed number: 283887
+
+SEQUENCE ALIGNMENT
+------------------
+
+Input data: 11 sequences with 9945 nucleotide sites
+Number of constant sites: 4006 (= 40.2815% of all sites)
+Number of site patterns: 185
+
+MAXIMUM PARSIMONY TREE
+-----------------------
+
+NOTE: Tree is UNROOTED although outgroup taxon 'Ancestral' is drawn at root
+Numbers in parentheses are  ultrafast bootstrap supports (%)
+
++--Ancestral
+|
++--PD69083b_lo0005
+|
+|        +--PD69083b_lo0008
+|     +--| (100)
+|     |  +--PD69083b_lo0025
+|  +--| (100)
+|  |  +--PD69083b_lo0009
++--| (99)
+   |        +--PD69083b_lo0013
+   |     +--| (100)
+   |     |  +--PD69083b_lo0014
+   |  +--| (100)
+   |  |  |  +--PD69083b_lo0021
+   |  |  +--| (100)
+   |  |     +--PD69083b_lo0022
+   +--| (100)
+      |  +--PD69083b_lo0023
+      +--| (100)
+         +--PD69083b_lo0024
+
+Parsimony score of the tree: 5960
+Tree in newick format:
+
+(Ancestral,PD69083b_lo0005,(((PD69083b_lo0008,PD69083b_lo0025)100,PD69083b_lo0009)100,(((PD69083b_lo0013,PD69083b_lo0014)100,(PD69083b_lo0021,PD69083b_lo0022)100)100,(PD69083b_lo0023,PD69083b_lo0024)100)100)99);
+
+CONSENSUS TREE
+--------------
+
+Consensus tree is constructed from 1000 bootstrap trees
+Branches with bootstrap support >0.000000% are kept (extended consensus)
+Numbers in parentheses are bootstrap supports (%)
+
++--Ancestral
+|
++--PD69083b_lo0005
+|
+|        +--PD69083b_lo0008
+|     +--| (100)
+|     |  +--PD69083b_lo0025
+|  +--| (100)
+|  |  +--PD69083b_lo0009
++--| (99)
+   |        +--PD69083b_lo0013
+   |     +--| (100)
+   |     |  +--PD69083b_lo0014
+   |  +--| (100)
+   |  |  |  +--PD69083b_lo0021
+   |  |  +--| (100)
+   |  |     +--PD69083b_lo0022
+   +--| (100)
+      |  +--PD69083b_lo0023
+      +--| (100)
+         +--PD69083b_lo0024
+
+
+Consensus tree in newick format: 
+
+(Ancestral,PD69083b_lo0005,(((PD69083b_lo0008,PD69083b_lo0025)100,PD69083b_lo0009)100,(((PD69083b_lo0013,PD69083b_lo0014)100,(PD69083b_lo0021,PD69083b_lo0022)100)100,(PD69083b_lo0023,PD69083b_lo0024)100)100)99);
+
+TIME STAMP
+----------
+
+Date and time: Thu Mar  5 17:22:19 2026
+Total CPU time used: 7.27892 seconds (0h:0m:7s)
+Total wall-clock time used: 7.30241 seconds (0h:0m:7s)
+

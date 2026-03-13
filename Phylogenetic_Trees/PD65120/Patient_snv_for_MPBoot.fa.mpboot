@@ -1,0 +1,99 @@
+MPBoot 1.1.0 built Mar 23 2018
+
+Input file name: output_files/PD65120/Patient_snv_for_MPBoot.fa
+Type of analysis: Parsimony tree reconstruction + MPBoot bootstrap approximation (1000 replicates)
+Random seed number: 666362
+
+SEQUENCE ALIGNMENT
+------------------
+
+Input data: 14 sequences with 9372 nucleotide sites
+Number of constant sites: 3416 (= 36.449% of all sites)
+Number of site patterns: 219
+
+MAXIMUM PARSIMONY TREE
+-----------------------
+
+NOTE: Tree is UNROOTED although outgroup taxon 'Ancestral' is drawn at root
+Numbers in parentheses are  ultrafast bootstrap supports (%)
+
++--Ancestral
+|
+|     +--PD65120c_lo0002
+|  +--| (100)
+|  |  +--PD65120c_lo0003
++--| (16)
+|  |     +--PD65120c_lo0006
+|  |  +--| (53)
+|  |  |  +--PD65120c_lo0011
+|  +--| (94)
+|     +--PD65120c_lo0010
+|
+|        +--PD65120b_lo0001
+|     +--| (100)
+|     |  |  +--PD65120b_lo0002
+|     |  +--| (100)
+|     |     +--PD65120b_lo0009
+|  +--| (100)
+|  |  +--PD65120b_lo0004
++--| (16)
+   |     +--PD65120b_lo0003
+   |  +--| (100)
+   |  |  +--PD65120b_lo0008
+   +--| (100)
+      |  +--PD65120b_lo0006
+      +--| (99)
+         +--PD65120b_lo0007
+
+Parsimony score of the tree: 5962
+Tree in newick format:
+
+(Ancestral,((PD65120c_lo0002,PD65120c_lo0003)100,((PD65120c_lo0006,PD65120c_lo0011)53,PD65120c_lo0010)94)16,(((PD65120b_lo0001,(PD65120b_lo0002,PD65120b_lo0009)100)100,PD65120b_lo0004)100,((PD65120b_lo0003,PD65120b_lo0008)100,(PD65120b_lo0006,PD65120b_lo0007)99)100)16);
+
+CONSENSUS TREE
+--------------
+
+Consensus tree is constructed from 1000 bootstrap trees
+Branches with bootstrap support >0.000000% are kept (extended consensus)
+Numbers in parentheses are bootstrap supports (%)
+
++--Ancestral
+|
+|     +--PD65120c_lo0002
+|  +--| (100)
+|  |  +--PD65120c_lo0003
++--| (23)
+|  |     +--PD65120b_lo0001
+|  |  +--| (100)
+|  |  |  |  +--PD65120b_lo0002
+|  |  |  +--| (100)
+|  |  |     +--PD65120b_lo0009
+|  +--| (100)
+|     +--PD65120b_lo0004
+|
+|        +--PD65120c_lo0006
+|     +--| (53)
+|     |  +--PD65120c_lo0011
+|  +--| (94)
+|  |  +--PD65120c_lo0010
++--| (23)
+   |     +--PD65120b_lo0003
+   |  +--| (100)
+   |  |  +--PD65120b_lo0008
+   +--| (100)
+      |  +--PD65120b_lo0006
+      +--| (99)
+         +--PD65120b_lo0007
+
+
+Consensus tree in newick format: 
+
+(Ancestral,((PD65120c_lo0002,PD65120c_lo0003)100,((PD65120b_lo0001,(PD65120b_lo0002,PD65120b_lo0009)100)100,PD65120b_lo0004)100)23,(((PD65120c_lo0006,PD65120c_lo0011)53,PD65120c_lo0010)94,((PD65120b_lo0003,PD65120b_lo0008)100,(PD65120b_lo0006,PD65120b_lo0007)99)100)23);
+
+TIME STAMP
+----------
+
+Date and time: Thu Mar  5 17:23:32 2026
+Total CPU time used: 18.2736 seconds (0h:0m:18s)
+Total wall-clock time used: 18.3145 seconds (0h:0m:18s)
+

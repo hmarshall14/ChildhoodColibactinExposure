@@ -1,0 +1,46 @@
+#nexus
+
+BEGIN Taxa;
+DIMENSIONS ntax=9;
+TAXLABELS
+[1] 'Ancestral'
+[2] 'PD65143c_lo0002'
+[3] 'PD65143c_lo0003'
+[4] 'PD65143b_lo0005'
+[5] 'PD65143b_lo0006'
+[6] 'PD65143b_lo0008'
+[7] 'PD65143b_lo0009'
+[8] 'PD65143b_lo0010'
+[9] 'PD65143b_lo0011'
+;
+END; [Taxa]
+
+BEGIN Splits;
+DIMENSIONS ntax=9 nsplits=22;
+FORMAT labels=no weights=yes confidences=no intervals=no;
+MATRIX
+	100	 2,
+	100	 3,
+	100	 2 3,
+	100	 4,
+	1	 2 3 4,
+	100	 5,
+	100	 6,
+	100	 9,
+	100	 6 9,
+	100	 7,
+	100	 6 7 9,
+	100	 8,
+	100	 6 7 8 9,
+	43	 1 2 3 4,
+	100	 1,
+	15	 1 4 5,
+	3	 1 4,
+	1	 1 2 3 5,
+	2	 1 5,
+	83	 1 2 3,
+	53	 4 5,
+	0	 2 3 4 5,
+;
+END; [Splits]
+
