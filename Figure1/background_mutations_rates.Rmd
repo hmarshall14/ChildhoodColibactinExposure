@@ -24,26 +24,16 @@ crypt_signature_attributions<-read.csv('../Data/crypt_signature_attributions.csv
 ```{r}
 ## annotate biopsies and patients :
 crypt_signature_attributions<-left_join(crypt_signature_attributions, crypt_metadata,by=c('patient','biopsy'))%>%
-  group_by(biopsy)%>%
-  
-  # annotate biopsies by colibactin status :
-  mutate(biopsy_colibactin_pos=sum(SBS88>0 & ID18>0,na.rm=T)>1,     # both present in at least 2 crypts
-         SBS89_ID25_biopsy_pos=sum(SBS89>0 & ID25>0,na.rm=T)>1)%>%  # both present in at least 2 crypts
-  ungroup()%>%
-  group_by(patient)%>%
-  mutate(patient_colibactin_pos=(sum(biopsy_colibactin_pos,na.rm=T)>0),   # at least one biopsy positive
-         patient_SBS89_ID25_pos=sum(SBS89_ID25_biopsy_pos,na.rm=T)>0,     # at least one biopsy positive
-
   # adjust SBS and ID burdens for sensitivity derived from coverage and median vaf :  
-         across(starts_with('SBS'),~as.numeric(.x) /sensitivitySBS),
-         snv_muts=as.numeric(snv_muts)/sensitivitySBS,
-         indel_muts=as.numeric(indel_muts)/sensitivityID,
+  mutate(across(starts_with('SBS'),~as.numeric(.x) /sensitivitySBS),
+         snv_muts=as.numeric(snv_total_burden)/sensitivitySBS,
+         indel_muts=as.numeric(indel_total_burden)/sensitivityID,
   
          SBSBackground=SBS1+SBS5+SBS18)  # calculate background SBS mutations
 
 ## create dataframe for assessing those individuals who are colibactin negative, SBSB89/ID25 neg and histologically normal
 background_df<-crypt_signature_attributions %>%
-  filter(cohort!='IBD'&colonoscopy_finding != 'FAP' & SBS89_ID25_biopsy_pos==FALSE &patient_colibactin_pos==FALSE) 
+  filter(cohort!='IBD'&colonoscopy_finding != 'FAP' & biopsy_SBS89_ID25_pos==FALSE &patient_colibactin_pos==FALSE) 
 ```
 
 ```{r}
@@ -59,12 +49,14 @@ age_only_lmer_ml<-lmer(SBSBackground ~ age+ (1 | patient),data = background_df)
 age_location_lmer_ml<-lmer(SBSBackground ~ age:location+ (1 | patient),data = background_df) 
 ```
 
-assess AIC to see if including location improves model :
+We first assess AIC to see if including location improves model :
 ```{r}
 # assess AIC and anova for if including location if improves model :
 AIC(age_only_lmer_ml,age_location_lmer_ml) # AIC better when incorporate location 
 ```
-assess anova to see if model significantly better with location
+Then test assess anova to see if model significantly better with location.
+The output from the below chunk indicates that deriving slopes for different locations
+improves model fit.
 ```{r}
 anova(age_only_lmer_ml,age_location_lmer_ml) # p-value<0.001
 ```
@@ -102,6 +94,7 @@ sbs_summary$intercept <- round(summary(age_location_lmer_ml)$coefficients['(Inte
 print(sbs_summary)
 ```
 ### iii : plot rates of sbs background mutations
+Create a dataframe for biopsy level summary of background burdens
 ```{r}
 ## create df for biopsy level summary :
 sbs_biopsy_sum <- background_df %>%
@@ -115,7 +108,7 @@ sbs_biopsy_sum <- background_df %>%
     cohort    = min(cohort),
     site      = first(site),
     crypts    = n(),
-    SBS89_ID25_biopsy_pos = first(SBS89_ID25_biopsy_pos),
+    biopsy_SBS89_ID25_pos = first(biopsy_SBS89_ID25_pos),
     patient_colibactin_pos = as.factor(max(patient_colibactin_pos)),
     patient   = min(patient),
     .groups = "drop"
@@ -154,6 +147,8 @@ label_df <- data.frame(
 )
 label_df$location=factor(label_df$location,levels=c('Ascending','Transverse','Sigmoid'))
 ```
+
+Construct plot for SBS background rates 
 ```{r}
 svg('~/sbs_rates.svg',width=12,height=8)
 ggplot(sbs_biopsy_sum,aes(x = age, y = SBSBackground_median, colour = location)) +
@@ -204,7 +199,7 @@ indel_age_only_lmer_ml<-lmer(indel_muts ~ age + (1| patient), data=background_df
 indel_age_location_lmer_ml<-lmer(indel_muts ~ age:location + (1| patient), data=background_df)
 ```
 
-once again assess AIC and anova :
+Once again assess AIC and anova :
 AIC and anova once again illustrate that including location will improve the fit
 of this model (anova p-value< 0.001)
 ```{r}
@@ -217,30 +212,6 @@ anova(indel_age_only_lmer_ml,indel_age_location_lmer_ml)
 ### ii : model for rate of all SBS Background mutations
 ```{r}
 ## construct summary dataframe 
-sbs_conf <- as.data.frame(confint(age_location_lmer_ml)) %>%
-  rownames_to_column("location") %>%
-  rename(
-    lower_ci = `2.5 %`,
-    upper_ci = `97.5 %`
-  )
-
-# extract model coefficients and combine with confidence intervals
-sbs_summary <- tidy(age_location_lmer_ml, conf.int = TRUE) %>%
-  filter(str_detect(term, "age:location")) %>%
-  mutate(location = str_remove(term, "age:location"),
-    mut_type = "SBS",
-    across(c(estimate, conf.low, conf.high), round, 0),
-    text = paste0(estimate, " mutations/year [", conf.low, ", ", conf.high, "]")
-  ) %>%
-  select(
-    mut_type,
-    location,
-    Estimate = estimate,
-    lower_ci = conf.low,
-    upper_ci = conf.high,
-    text
-  )
-
 id_conf<-as.data.frame(confint(indel_age_location_lmer_ml))%>%
   rownames_to_column(var='location')%>%
   rename(
@@ -306,9 +277,7 @@ age_grid <- seq(0, 20, length.out = 200)
 line_df_expanded <- line_df %>%
   group_by(location) %>%
   tidyr::crossing(age = age_grid) %>%
-  mutate(
-    fit = intercept + slope * age
-  ) %>%
+  mutate(fit = intercept + slope * age) %>%
   ungroup()
 
 ## create a datafraem for labels:
@@ -365,13 +334,20 @@ ggplot(id_biopsy_sum,aes(x = age, y = IDBackground_median, colour = location)) +
 dev.off()
 ```
 
+save an output from both models for other downstream analyses:
+```{r}
+background_rates_summary<-rbind(sbs_summary,id_summary)
+background_rates_summary<-background_rates_summary%>%select(-text)
+write.csv(background_rates_summary,'../Data/background_mutation_rates.csv',quote=F,row.names=F)
+```
+
 ## c : compare the burden between cohorts:
 ### i : compare burdens of sbs between cohorts 
 first create a dataframe for colibactin and SBS89/ID25 negative crypts
 ```{r}
 # create dataframe for cohort comparisosn
 compare_cohort_df <- crypt_signature_attributions %>%
-  filter(SBS89_ID25_biopsy_pos==FALSE &patient_colibactin_pos==FALSE)%>%
+  filter(biopsy_SBS89_ID25_pos==FALSE &patient_colibactin_pos==FALSE)%>%
   mutate(SBSBackground=SBS1 + SBS5 + SBS18)
 ```
 
@@ -381,7 +357,7 @@ age_location_ibd_included_lmer_ml<-lmer(SBSBackground ~ age:location+ (1 | patie
 age_location_cohort_lmer_ml<-lmer(SBSBackground ~ age:location+cohort+ (1 | patient),data = compare_cohort_df)
 ```
 
-compare models
+Compare models to test if including cohort improves prediction of background burden
 ```{r}
 anova(age_location_cohort_lmer_ml,age_location_ibd_included_lmer_ml) 
 ```
@@ -411,7 +387,7 @@ cohort_comparison_summary<-data.frame(summary(age_location_cohort_lmer_ml)$coeff
 
 print model outputs
 ```{r}
-print(cohort_comparison_summary)
+print(cohort_comparison_summary) # Estimate : -193 mutations [-310, -76] - indicates lower in Normal
 ```
 ### ii : test each background signature
 ```{r}
@@ -427,8 +403,8 @@ for (signature in names(sig_models)) {
   
   coef <- data.frame(ml$coefficients)
   estimate=round(abs(coef['cohortNormal','Estimate']),digits=0)
-  lower_ci <- round(coef['cohortNormal','Estimate'] - 1.96 * coef['cohortNormal','Std..Error'], digits = 0)
-  upper_ci <- round(coef['cohortNormal','Estimate'] + 1.96 * coef['cohortNormal','Std..Error'], digits = 0)
+  upper_ci <- abs(round(coef['cohortNormal','Estimate'] - 1.96 * coef['cohortNormal','Std..Error'], digits = 0)) # upper_ci and signs (-) flipped to create absolute because Normal lower rate
+  lower_ci <- abs(round(coef['cohortNormal','Estimate'] + 1.96 * coef['cohortNormal','Std..Error'], digits = 0))
   pvalue <- round(coef['cohortNormal','Pr...t..'],digits=3)
 
   print(paste0(signature, ": ", estimate, " mutations [", lower_ci, ",", upper_ci, "] p-value=", pvalue))
@@ -437,11 +413,11 @@ for (signature in names(sig_models)) {
 
 ### iii : compare burdens of id between cohorts 
 ```{r}
-## test for role of ibd on indels :
+## test for effect of IBD on indels :
 indel_age_location_cohort_lmer_ml<-lmer(indel_muts ~ age:location+cohort+ (1 | patient),data = compare_cohort_df)
 ```
 
-create a summary dataframe 
+create a summary dataframe for effect of IBD on indel
 ```{r}
 id_ibd_conf<-data.frame(confint(indel_age_location_cohort_lmer_ml))%>%
   rownames_to_column(var='variable')

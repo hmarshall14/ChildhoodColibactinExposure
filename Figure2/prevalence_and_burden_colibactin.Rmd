@@ -1,7 +1,10 @@
 ---
-title: "R Notebook"
+title: "Prevalence and Burden of Colibactin Mutagenesis"
 output: html_notebook
 ---
+
+This notebook is for the analysis of the section 'Prevalence and Burden of Colibactin Mutagenesis'
+It outlines the derivation of the summary statistics and comparisons for the prevalence, burden of SBS88 / ID18 mutations, and for the construction of Figure 2.B
 
 ```{r}
 library(dplyr)
@@ -9,22 +12,13 @@ library(stringr)
 library(tidyverse)
 library(lmerTest)
 library(ggh4x)
+library(broom.mixed)
 ```
 
 load in relevant data frames for this analysis :
 ```{r}
 crypt_metadata<-read.csv('../Data/biopsy_metadata.csv')
 crypt_signature_attributions <- read.csv('../Data/crypt_signature_attributions.csv')
-
-
-crypt_signature_attributions<-crypt_signature_attributions%>%
-  group_by(biopsy)%>%
-  mutate(biopsy_colibactin_pos=sum(SBS88>0 & ID18>0,na.rm=T)>1,     # both present in at least 2 crypts
-         SBS89_ID25_biopsy_pos=sum(SBS89>0 & ID25>0,na.rm=T)>1)%>%  # both present in at least 2 crypts
-  ungroup()%>%
-  group_by(patient)%>%
-  mutate(patient_colibactin_pos=(sum(biopsy_colibactin_pos,na.rm=T)>0),   # at least one biopsy positive
-         patient_SBS89_ID25_pos=sum(SBS89_ID25_biopsy_pos,na.rm=T)>0)     # at least one biopsy positive
 ```
 
 ## a : summary statistics of exposures:
@@ -54,40 +48,25 @@ cohort_sum_table<-left_join(crypt_signature_attributions, crypt_metadata,by=c('p
   as.matrix()
 
 ## summarise by cohort :
-cohort_sum_table
+n_normal_pos=cohort_sum_table['IBD','TRUE']
+prop_normal_pos=round(cohort_sum_table['IBD','TRUE'] / rowSums(cohort_sum_table)['IBD']*100)
+n_ibd_pos=cohort_sum_table['Normal','TRUE']
+prop_ibd_pos=round(cohort_sum_table['Normal','TRUE'] / rowSums(cohort_sum_table)['Normal']*100)
+
+## print the outputs
+print(paste0('Normal patients positive : n=',n_normal_pos))  # n=14 patients
+print(paste0('Proportion normal patients positive : ',prop_normal_pos, '%'))  # 45%
+print(paste0('IBD patients positive : n=',n_ibd_pos))  # n=21 patients
+print(paste0('Proportion IBD patients positive : n=',prop_ibd_pos,'%')) # n=39%
 ```
 
 ```{r}
 ## perform fishers test
 fisher.test(cohort_sum_table)
 ```
-
-compare prevalence of colibactin positive between locations:
-```{r}
-## print proportions by location
-left_join(crypt_signature_attributions, crypt_metadata,by=c('patient','biopsy'))%>%
-  group_by(location)%>%
-  filter(!duplicated(biopsy))%>%
-  summarise(colibactin_positive_biopsies=sum(biopsy_colibactin_pos),
-            number_biopsies=length(location),
-            proportion_biopies_positive=round(colibactin_positive_biopsies / number_biopsies,digits=2))%>%
-  column_to_rownames(var='location')
-
-```
-
 ### iii : compare for prevalence by nationality
 ```{r}
-## summarise n and proportion by nationaliry :
-left_join(crypt_signature_attributions, crypt_metadata,by=c('patient','biopsy'))%>%
-  group_by(nationality)%>%
-  filter(!duplicated(patient))%>%
-  summarise(patients_colibacitn_pos=sum(patient_colibactin_pos),
-            number_patients=length(patient_colibactin_pos),
-            proportion_colibactin_pos=round(patients_colibacitn_pos / number_patients,digits=2)*100)
-```
-
-```{r}
-# fisher's test to compare between cohorts:
+## summarise n and proportion by nationality :
 nationality_table <- left_join(crypt_signature_attributions, crypt_metadata,by=c('patient','biopsy'))%>%
   filter(!duplicated(patient))%>%
   group_by(nationality,patient_colibactin_pos)%>%
@@ -97,15 +76,30 @@ nationality_table <- left_join(crypt_signature_attributions, crypt_metadata,by=c
     values_from = patients,
     values_fill = 0
   ) %>%
-  mutate(prop=`TRUE` / (`TRUE` + `FALSE`))%>%
   column_to_rownames("nationality") %>%
   as.matrix()
 
+## summarise by cohort :
+n_uk_pos=nationality_table['UK','TRUE']
+prop_uk_pos=round(nationality_table['UK','TRUE'] / rowSums(nationality_table)['UK']*100)
+n_danish_pos=nationality_table['Danish','TRUE']
+prop_danish_pos=round(nationality_table['Danish','TRUE'] / rowSums(nationality_table)['Danish']*100)
+
+# print summaries
+print(paste0('UK patients positive : n=',n_uk_pos))  # n=85 patients
+print(paste0('Proportion UK patients positive : ',prop_uk_pos, '%'))  # n=37 patients
+print(paste0('Danise patients positive : n=',n_danish_pos))  # n=37 patients
+print(paste0('Proportion UK patients positive : n=',prop_danish_pos,'%')) # n=48 biopsies
+
+```
+
+```{r}
+# fisher's test to compare between nationalities:
 pvalue=round(fisher.test(nationality_table)$p.value,digits=4)
 print(paste0("Fisher's p-value=",pvalue))
 ```
 
-### iv : compare prevalence of colibactin by location :
+### v : compare prevalence of colibactin by location :
 Here we select only those individuals who had two biopsies
 ```{r}
 ## donors with two biopsies :
@@ -118,7 +112,7 @@ print(paste0('Donors with two biopsies: ',length(unique(donors_two_biopsies_df$p
 
 ```{r}
 ## donors with two biopsies who are positive in at least one crypt :
-number_pos_donors_two_biopsies=donors_both_biopsies_df%>%
+number_pos_donors_two_biopsies=donors_two_biopsies_df%>%
   filter(patient_colibactin_pos==TRUE)%>%
   filter(!duplicated(patient))%>%nrow()
 print(paste0('Donors with two biopsies: ',number_pos_donors_two_biopsies))
@@ -126,17 +120,17 @@ print(paste0('Donors with two biopsies: ',number_pos_donors_two_biopsies))
 Provide a breakdown of positive biopsies by anatomical location
 ```{r}
 ## create a breakdown of positive biopsies by locaiton
-donors_both_biopsies_df%>%
+donors_two_biopsies_df%>%
   filter(patient_colibactin_pos==TRUE)%>%
   filter(!duplicated(biopsy))%>%
   select(patient, biopsy_colibactin_pos,location)%>%
   pivot_wider(names_from=location, values_from =biopsy_colibactin_pos)%>%
-  mutate(sum=case_when(Sigmoid==TRUE & Ascending==TRUE ~'Both',
-                       Sigmoid==TRUE & Ascending ==FALSE ~ 'Sigmoid',
-                       Sigmoid==FALSE & Ascending ==TRUE ~ 'Ascending',
+  mutate(summary=case_when(Sigmoid==TRUE & Ascending==TRUE ~'Both positive',
+                       Sigmoid==TRUE & Ascending ==FALSE ~ 'Only sigmoid positive',
+                       Sigmoid==FALSE & Ascending ==TRUE ~ 'Only ascending positive',
                        TRUE ~ 'Neither'))%>%
-  group_by(sum)%>%
-  summarise(n=length(sum))
+  group_by(summary)%>%
+  summarise(n=length(summary))
 ```
 
 ### v: look at proportion of crypts that are positive in a given biopsy :
@@ -158,7 +152,9 @@ print(paste0('Median number of positive crypts per biopsy: ',crypts_biopsy_sum$m
 print(paste0('Median proportion of positive crypts per biopsy : ',crypts_biopsy_sum$median_prop_pos*100, '%'))
 print(paste0('Number of biopsies with all crypts positive : ',crypts_biopsy_sum$n_biopsies_all_crypts_positive, ' biopsies'))
 print(paste0('Total number of positive biopsies : ',crypts_biopsy_sum$n_biopsies, ' biopsies'))
+print(paste0('Proportion of biopsies with all crypts positive : ', round((crypts_biopsy_sum$n_biopsies_all_crypts_positive / crypts_biopsy_sum$n_biopsies)*100,0) , '%'))
 ```
+
 ## b : mutation burden of colibactin
 ### i : calcualte summary metrics
 ```{r}
@@ -235,84 +231,48 @@ ibd_normal_results %>%
   pull(text) %>%
   walk(cat)
 ```
-### iv : compare children, adults and tumour crypts :
-read in data from lee-six et al. Nature. 2019
+
+### iv : compare children and adults :
+For this analysis, we will compare SBS88 / ID18 burdens from our study and Lee-six et al. Nature. 2019
 ```{r}
 ## Lee Six et al Nature 2019 attributions : Taken from Supplementary Table of paper
-hls_metadata <- read.csv('..//Data/Lee_Six_Nature_2019/41586_2019_1672_MOESM4_ESM.csv')
-hls_attributions <- read.table('../Data/Lee_Six_Nature_2019/41586_2019_1672_MOESM5_ESM.txt',sep='\t',header=T)
+adult_crypt_metadata <- read.csv('..//Data/Lee_Six_Nature_2019/41586_2019_1672_MOESM4_ESM.csv')
+adult_crypt_attributions <- read.table('../Data/Lee_Six_Nature_2019/41586_2019_1672_MOESM5_ESM.txt',sep='\t',header=T)
 
-hls_attributions <- left_join(hls_attributions,hls_metadata,by=c('patient'='patient_label_in_files','age','sex'))%>%
+adult_crypt_attributions <- left_join(adult_crypt_attributions,adult_crypt_metadata,by=c('patient'='patient_label_in_files','age','sex'))%>%
   
   # subset for just adults :
   filter(age>18)%>%
 
   # format variables to facilitate analyses :
-  mutate(tumour_normal_status='Normal Adult', # this will be the grouping parameter for downstream comparisons
-         location=case_when(str_detect(site, 'Left') ~ 'Left Sided Colon',
-                            TRUE~'Right Sided Colon'),
-         tissue_strat=paste0(tumour_normal_status,' ',location),
-         crypt='Normal Adult',
-         colibactin_present=ifelse((SBSA>100 | SBSA/sbstotal>0.05) & (IDA>5 | IDA/idtotal>0.05),TRUE,FALSE))%>% # use crtierion from Lee Six paper 
+  mutate(location=case_when(str_detect(site, 'Left') ~ 'Left',
+                            TRUE~'Right'),
+         cohort='Adult',
+         colibactin_present=ifelse((SBSA>100 | SBSA/sbstotal>0.05) & (IDA>5 | IDA/idtotal>0.05),TRUE,FALSE))%>% # use criteria from Lee Six paper 
   
   # subset for just colibactin positive crypts
   filter(colibactin_present==TRUE)%>%
-  dplyr::select(crypt,age,location,tumour_normal_status,tissue_strat,SBSA,IDA)
-colnames(hls_attributions)<-c('crypt','age','site','tumour_normal','tissue_strat','SBS88','ID18')
-```
-
-read in tumour data from Diaz-Gay et al. Nature 2025
-```{r}
-## Read in data from Diaz-Gay et al. Nature 2025 : Metadata is not publically available
-mutographs_tumour_metadata<-read_excel('../Data/Diaz_Gay_Nature_2025/MutWP1_CRC_tumour_specific_Manuscript_v2_2.xlsx')%>%
-  select(donor_id,tumorsite)
-
-# read in Diaz-Gay et al. Nature Metadata 2025:  Metadata is not publically available
-mutographs_metadata<-read_excel('../Data/Diaz_Gay_Nature_2025/MutWP1_CRC_core_data_Manuscript_v2.xlsx')%>%
-  select(donor_id,age_diag, cancer_type)%>%
-  left_join(mutographs_tumour_metadata,'donor_id')%>%
-  mutate(location=case_when(str_detect(tumorsite, 'Left|Sigmoid|sigmoid|Splenic') ~ 'Left Sided Colon',TRUE~'Right Sided Colon'))%>%
-  select(donor_id,age_diag,location)
-
-# read in SBS attribution from Diaz-Gay et al. Nature 2025
-mutographs_sbs_attributions<-read_excel('../Data/Diaz_Gay_Nature_2025/41586_2025_9025_MOESM3_ESM.xlsx',sheet='Supplementary Table 11',skip=2)
-
-# read in ID attribution from Diaz-Gay et al. Nature 2025
-mutographs_id_attributions<-read_excel('../Data/Diaz_Gay_Nature_2025/41586_2025_9025_MOESM3_ESM.xlsx',sheet='Supplementary Table 12',skip=2)
-mutographs_id_attributions<-mutographs_id_attributions%>%filter(ID18>0)%>%select(Sample,ID18)
-
-
-mutographs_attributions_df <- mutographs_metadata%>%
-  left_join(mutographs_sbs_attributions,by=c('donor_id'='Sample'))%>%
-  left_join(mutographs_id_attributions,by=c('donor_id'='Sample'))%>%
-  filter(ID18>0 | SBS88 >0)%>%
-  mutate(tumour_normal = "Tumour",age_diag=median(age_diag), Sample="Tumour", tissue_strat = paste0(tumour_normal,' ',location))%>%
-  dplyr::select(Sample,age_diag,location,tumour_normal,tissue_strat,SBS88,ID18)
-
-colnames(mutographs_attributions_df)<-c('Sample','age','site','tumour_normal','tissue_strat','SBS88','ID18')
+  dplyr::select(patient,crypt,age,location,cohort,SBSA,IDA)
+colnames(adult_crypt_attributions)<-c('patient','crypt','age','site','cohort','SBS88','ID18')
 ```
 
 reformat children's crypts burdens for analysis 
 ```{r}
 ## derive summaries per donor
-mutographs_compare<-crypt_signature_attributions%>%
-  
-  # adjust for sensitivity scores 
-  mutate(SBS88=SBS88/sensitivitySBS,ID18=ID18/sensitivityID)%>%
-  
+children_crypt_attributions<-left_join(crypt_metadata,crypt_signature_attributions,by=c('patient','biopsy'))%>%
+
   # subset just positive crypts
   filter(SBS88>0 & ID18>0& biopsy_colibactin_pos==TRUE)%>% # subset positive crypts
-  mutate(site=paste0(site,' Sided Colon'), tumour_normal='Normal', tissue_strat = paste0(tumour_normal, ' ',site))%>%
-  select(patient,age,site,tumour_normal,tissue_strat,SBS88,ID18)
+  mutate(cohort='Child')%>%
+  select(patient,crypt,age,site,cohort,SBS88,ID18)
 
-colnames(mutographs_compare)<-c('crypt','age','site','tumour_normal','tissue_strat','SBS88','ID18')
-  
+colnames(children_crypt_attributions)<-c('patient','crypt','age','site','cohort','SBS88','ID18')
 ```
 
 combine to construct a master datafame for analysis and for plotting
 ```{r}
 ## construct a combined dataframe to facilitate plotting :
-mutographs_compare_df<-rbind(mutographs_compare,mutographs_attributions_df, hls_attributions)%>%
+compare_children_adult_df<-rbind(children_crypt_attributions,adult_crypt_attributions)%>%
   
   # convert to long format to facilitate plotting
   pivot_longer(cols=c('SBS88','ID18'),values_to='count',names_to='signature')%>%
@@ -321,18 +281,18 @@ mutographs_compare_df<-rbind(mutographs_compare,mutographs_attributions_df, hls_
   filter(count>0)%>%
   
   # stipulate factor levels
-  mutate(site=factor(site,levels=c('Left Sided Colon','Right Sided Colon')),
-         tissue_strat=ifelse(tissue_strat=='Tumour',paste0(tissue_strat,' ',location),tissue_strat),
+  mutate(site=factor(site,levels=c('Left','Right')),
+         cohort=factor(cohort, levels=c('Child','Adult')),
          signature=factor(signature,levels=c('SBS88','ID18')))
 ```
 
 ### v. compare between paediatric crypts and normal adult crypts:
 ```{r}
 ## run linear mixed effects for children versus adult with stratification by site
-compare_children_adult <- mutographs_compare_df[!str_detect(mutographs_compare_df$tissue_strat,'Tumour'),] %>%
+compare_children_adult=compare_children_adult_df %>%
   group_by(site, signature) %>%
   group_modify(~ {
-    model <- lmer(count ~ tissue_strat + (1 | Sample), data = .x)
+    model <- lmer(count ~ cohort + (1 | patient), data = .x)
     broom.mixed::tidy(model)})%>%
   filter(effect=='fixed' & term!='(Intercept)')
 
@@ -346,29 +306,33 @@ compare_children_adult$comparison='children adult'
 
 
 compare_children_adult<-compare_children_adult%>%
-  select(signature,site, comparison,sum,p.value)
+  select(signature,site, comparison,sum,p.value)%>%
+  arrange(signature)
+
+# print the outputs from model estimates
+print(compare_children_adult)
 ```
 
-### viii : compare prevalence between HLS and our dataset
+### viii : compare prevalence between lee_six and our dataset
 ```{r}
-## hls attributions :
-lee_six_2019_metadata <- read.csv('..//Data/Lee_Six_Nature_2019/41586_2019_1672_MOESM4_ESM.csv')
-lee_six_2019_attributions <- read.table('../Data/Lee_Six_Nature_2019/41586_2019_1672_MOESM5_ESM.txt',sep='\t',header=T)%>%
-  
+## lee_six attributions :
+adult_crypt_metadata <- read.csv('..//Data/Lee_Six_Nature_2019/41586_2019_1672_MOESM4_ESM.csv')
+adult_crypt_attributions <- read.table('../Data/Lee_Six_Nature_2019/41586_2019_1672_MOESM5_ESM.txt',sep='\t',header=T)%>%
+
   # join with metadata
-  left_join(hls_metadata,by=c('patient'='patient_label_in_files','age','sex'))%>%
+  left_join(adult_crypt_metadata,by=c('patient'='patient_label_in_files','age','sex'))%>%
   
   # filter for adults
   filter(age>18)%>%
   
   # annotate for locationa and colibactin status
-  mutate(location=case_when(str_detect(site, 'Left') ~ 'Left Sided Colon',
-                            TRUE~'Right Sided Colon'),
+  mutate(location=case_when(str_detect(site, 'Left') ~ 'Left',
+                            TRUE~'Right'),
          colibactin_present=ifelse((SBSA>100 | SBSA/sbstotal>0.05) & (IDA>5 | IDA/idtotal>0.05),TRUE,FALSE))%>%
   dplyr::select(patient,crypt,site,age,colibactin_present,bowel_cancer_diagnosis,SBSA,IDA)
 
 # summary table :
-lee_six_2019_prevalence<-lee_six_2019_attributions%>%
+adult_crypt_prevalence<-adult_crypt_attributions%>%
   group_by(patient)%>%
   summarise(site=first(site), age=min(age), bowel_cancer_diagnosis=first(bowel_cancer_diagnosis),
             patient_colibactin_pos=sum(colibactin_present,na.rm=T)>1)%>%
@@ -376,7 +340,9 @@ lee_six_2019_prevalence<-lee_six_2019_attributions%>%
   summarise(adult=n())%>%
   column_to_rownames(var='patient_colibactin_pos')
 
-lee_six_2019_prevalence
+# print outputs
+adult_prev=round(adult_crypt_prevalence['TRUE',] / sum(adult_crypt_prevalence)*100,digits=0)
+print(paste0('Colibactin prevalence in adults :', adult_prev,'%' ))
 ```
 
 ```{r}
@@ -388,30 +354,16 @@ childre_prevalence<-left_join(crypt_signature_attributions, crypt_metadata,by=c(
   column_to_rownames(var='patient_colibactin_pos')
 
 # perform fisher's test :
-fisher.test(t(cbind(lee_six_2019_prevalence,childre_prevalence))) #p-value=0.333
+fisher.test(t(cbind(adult_crypt_prevalence,childre_prevalence))) #p-value=0.333
   
 ```
 
-### vi : compare between children and tumours:
-```{r}
-## because all tumours are one individual, we fit just a linear model :
-compare_children_tumours<-mutographs_compare_df[!str_detect(mutographs_compare_df$tissue_strat,'Normal Adult'),]%>%
-  group_by(site, signature) %>%
-  group_modify(~ {
-    model <- lm(count ~ tissue_strat, data = .x)
-    broom.mixed::tidy(model)})%>%
-  filter(term!='(Intercept)')%>%
-  mutate(sum=paste0(abs(round(estimate,digits=0)),' [', abs(round(estimate+1.96*std.error,digits=0)),',',abs(round(estimate-1.96*std.error,digits=0)),']'),
-                    p.value=round(p.value,digits=3),
-         comparison='children tumour')%>%
-  select(site,comparison, sum,p.value)
-```
-
+##c : Figure 2.C : Boxplot for each individual biopsy in children's cohort
 create an aggregate dataframe for plotting 
 ```{r}
 ## for comparison between children's locations, format the previous comparisons betwen locations:
 children_site_compare<-location_results
-children_site_compare$site='Left Right Colon'
+children_site_compare$site='Both'
 children_site_compare$comparison='children children'
 children_site_compare$signature=str_remove(children_site_compare$signature,'\\s')
 
@@ -419,82 +371,42 @@ children_site_compare<-children_site_compare%>%
   select(signature,site, comparison, p.value)
 
 # createa a combined dataframe
-compare_p_values_df<-rbind(compare_children_adult,compare_children_tumours,children_site_compare)%>%
+compare_p_values_df<-rbind(compare_children_adult,children_site_compare)%>%
   group_by(signature) %>%
-  mutate(p.adj = round(p.adjust(p.value, method = "BH"),digits=3))%>%
   ungroup()%>%
-  mutate(label=case_when(p.adj<0.001~'P < 0.001',
-                         TRUE~paste0('P = ',round(p.adj,digits=3))),
-         comparison=factor(comparison,levels=c('children children','children tumour','children adult')))%>%
+  mutate(label=case_when(p.value<0.001~'P < 0.001',
+                         TRUE~paste0('P = ',round(p.value,digits=3))),
+         comparison=factor(comparison,levels=c('children children','children adult')))%>%
   arrange(signature, site, comparison)
 
 ```
 
-##c : Figure 2.C : Boxplot for each individual biopsy in children's cohort
-```{r}
-svg('~/cohort_crypt_summary.svg',,width=17,height=8, bg='transparent')
-## initialise plot :
-ggplot(mutographs_compare_df, aes(x = fct_reorder(crypt,age), y = count, fill = tissue_strat)) +
-  
-  # create boxplot :
-  geom_boxplot(size = 0.7) +
-  
-  # facet plot by signature and by colon side
-  facet_grid(signature~ site, scales = "free", space = "free_x", switch='both',
-              label=labeller(site=as_labeller(c(`Left Sided Colon` = 'Colon Left Side',`Right Sided Colon` = 'Colon Right Side')),
-                             signature=as_labeller(c(SBS88='SBS88 Mutation Burden', ID18='ID18 Mutation Burden')))) +
-   facetted_pos_scales(y = list(signature == "SBS88" ~ scale_y_continuous(limits = c(0, 2750)), TRUE ~ scale_y_continuous(limits = c(0, 750)))) +
-  
-  # stipulate colour scheme :
-  scale_fill_manual(breaks=c("Normal Left Sided Colon","Normal Right Sided Colon","Normal Adult Right Sided Colon", "Normal Adult Left Sided Colon","Tumour Left Sided Colon", "Tumour Right Sided Colon"),
-                    values = c('thistle1','thistle1','orchid3','orchid3', 'orchid4','orchid4'),
-                    labels=c("Child Colon", "",'Adult Colon','','Colorectal Tumour','')) +
-   
-
-  # formate labels and theme :  
-  labs(fill = 'crypt Type') +
-  theme_classic() +
-  theme(
-    axis.text.x = element_blank(),
-    axis.ticks.x = element_blank(),
-    axis.title.x = element_blank(),
-    axis.title.y = element_blank(),
-    legend.position = 'bottom',
-    panel.spacing.x = unit(1.2, "cm"),
-    strip.background = element_blank(),
-    strip.text = element_text(size = 14, face = "bold"),
-    legend.title = element_text(size = 14, face = "bold"),
-    legend.text = element_text(size = 12, face = "bold"),
-    strip.placement='outside'
-  )
-dev.off()
-```
 
 ## d : Figure 2.D : Boxplot for Cohort Summary
 ```{r}
 ## label_df for plotting p-values :
 label_df=compare_p_values_df
-label_df$y=c(550,500, 450,500,450,3800,3500,3200,3500,3200)
-label_df$x=c(2.5,2,1.5,5,4.5,2.5,2,1.5,5,4.5)
+label_df$y=c(550,500,500,3800,3500,3500)
+label_df$x=c(2,1.5,3.5,2,1.5,3.5)
 label_df$signature=factor(label_df$signature, levels=c('SBS88','ID18'))
 
 # create df for plotting brakcets :
 brackets_df <- data.frame(
   signature = compare_p_values_df$signature,
-  xstart    = c(1, 1,4,4,1,1, 1,4,4,1),        # starting x for bracket
-  xend      = c(2, 3,5,6,4,2, 3,5,6,4),        # ending x for bracket
-  y         = c(450,500,450,500,550,3200,3500,3200,3500,3800)   # height of the bracket
+  xstart    = c(1, 1,3,1,1,3),        # starting x for bracket
+  xend      = c(3, 2,4,3,2,4),        # ending x for bracket
+  y         = c(550,500,500,3800,3500,3500)   # height of the bracket
 )
 brackets_df$signature=factor(brackets_df$signature, levels=c('SBS88','ID18'))
 
 ## stipulate factor order for plotting :
-mutographs_compare_df$tissue_strat=factor(mutographs_compare_df$tissue_strat,
-                                          levels=c("Normal Left Sided Colon","Normal Adult Left Sided Colon","Tumour Left Sided Colon","Normal Right Sided Colon","Normal Adult Right Sided Colon", "Tumour Right Sided Colon"))
-
+compare_children_adult_df$group=paste(compare_children_adult_df$cohort, compare_children_adult_df$site,sep=' ')
+compare_children_adult_df$group=factor(compare_children_adult_df$group, 
+                                       levels=c("Child Left", "Adult Left","Child Right","Adult Right"))
 ## initialise plot :
 svg('~/cohort_summary.svg',width=12,height=10,bg='transparent')
 
-ggplot(mutographs_compare_df, aes(x = tissue_strat, y = count, fill = tissue_strat)) +
+ggplot(compare_children_adult_df, aes(x = group, y = count, fill = group)) +
   
   # construct boxplot :
   geom_boxplot(size = 0.7,outlier=F) +
@@ -505,20 +417,21 @@ ggplot(mutographs_compare_df, aes(x = tissue_strat, y = count, fill = tissue_str
    facetted_pos_scales(y = list(signature == "SBS88" ~ scale_y_continuous(limits = c(0, 4000)), TRUE ~ scale_y_continuous(limits = c(0,600)))) +
   
   # stipulate colour scheme
-  scale_fill_manual(values =c('thistle1','orchid3', 'orchid4','thistle1','orchid3', 'orchid4')) +
+  scale_fill_manual(values =c('thistle1', 'orchid4','thistle1', 'orchid4')) +
   
+  # add in pvalues :
+  geom_text(data = label_df, aes(x = x, y = y *1.05, label = label), inherit.aes = FALSE, fontface = "bold", size = 5) +
   # add in brakces and pvalues :
   geom_segment(data = brackets_df, aes(x = xstart, xend = xend, y = y, yend = y), inherit.aes = FALSE, size = 0.8) +
-  geom_segment(data = brackets_df, aes(x = xstart, xend = xstart, y = y, yend = 0.98*y),  inherit.aes = FALSE, size = 0.8) +
-  geom_segment(data = brackets_df,  aes(x = xend, xend = xend, y = y, yend = 0.98*y), inherit.aes = FALSE, size = 0.8) +
+  geom_segment(data = brackets_df, aes(x = xstart, xend = xstart, y = y, yend = 0.97*y),  inherit.aes = FALSE, size = 0.8) +
+  geom_segment(data = brackets_df,  aes(x = xend, xend = xend, y = y, yend = 0.97*y), inherit.aes = FALSE, size = 0.8) +
   
-  geom_text(data = label_df, aes(x = x, y = y *1.05, label = label), inherit.aes = FALSE, fontface = "bold", size = 5) +
+  
   
   # stipulate x axis :
-  scale_x_discrete(breaks=c('Normal Left Sided Colon','Normal Adult Left Sided Colon',"Tumour Left Sided Colon",
-                            'Normal Right Sided Colon','Normal Adult Right Sided Colon',"Tumour Right Sided Colon"),
-                   labels=c('Childhood Colon\nLeft Side', 'Adult Colon\nLeft Side','Colorectal Cancer\nLeft Side',
-                            'Childhood Colon\nRight Side','Adult Colon\nRight Side','Colorectal Cancer\nRight Side'))+
+  scale_x_discrete(breaks=c("Child Left", "Adult Left","Child Right","Adult Right"),
+                   labels=c('Childhood Colon\nLeft Side', 'Adult Colon\nLeft Side',
+                            'Childhood Colon\nRight Side','Adult Colon\nRight Side'))+
   
   # formate theme 
   labs(fill = 'crypt Type') +

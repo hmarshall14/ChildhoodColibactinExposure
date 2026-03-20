@@ -1,0 +1,52 @@
+THIS FILE CONTAINS THE METADATA ABOUT SYSTEM AND RUNTIME
+
+
+-------System Info-------
+Operating System Name: Linux
+Nodename: farm22-head1
+Release: 5.15.0-168-generic
+Version: #178-Ubuntu SMP Fri Jan 9 19:05:03 UTC 2026
+
+-------Python and Package Versions------- 
+Python Version: 3.11.6
+SigProfilerPlotting Version: 1.3.24
+SigProfilerMatrixGenerator Version: 1.2.30
+SigProfilerAssignment Version: 0.1.4
+Pandas version: 1.5.3
+Numpy version: 1.26.2
+
+--------------EXECUTION PARAMETERS--------------
+INPUT DATA
+	input_type: matrix
+	output: sigprofiler_sbs_patients_correct_depth/02_Output/SBS96/All_Solutions/SBS96_5_Signatures/SigPro_Deconv
+	samples: sigprofiler_sbs_patients_correct_depth/01_Input/output/SBS/paediatric_patients.SBS96.all
+	reference_genome: GRCh38
+	context_types: 96
+	exome: False
+COSMIC MATCH
+	cosmic_version: 3.4
+	nnls_add_penalty: 0.05
+	nnls_remove_penalty: 0.01
+	initial_remove_penalty: 0.05
+	de_novo_fit_penalty: 0.02
+	export_probabilities: True
+	collapse_to_SBS96: True
+	denovo_refit_option: False
+	decompose_fit_option: True
+	cosmic_fit_option: False
+
+-------Analysis Progress------- 
+[2026-03-20 11:52:40] Analysis started: 
+
+ Decomposing De Novo Signatures  .....
+ [2026-03-20 11:52:40] Assigning decomposed signature 
+
+ Finished Decompose fitting! 
+Execution time:0:00:44.587802
+
+[2026-03-20 11:53:25] Analysis ended: 
+
+-------Job Status------- 
+Assignment of mutational signatures completed successfully! 
+Total execution time: 0:00:44 
+Results can be found in:  sigprofiler_sbs_patients_correct_depth/02_Output/SBS96/All_Solutions/SBS96_5_Signatures/SigPro_Deconv  folder

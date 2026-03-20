@@ -2,7 +2,9 @@
 title: "Mutational Age Analysis"
 output: html_notebook
 ---
+This notebook is used for the analysis of mutational age between colibactin positive and negative individuals. It describes the construction of Figure 2.A
 
+load libaries
 ```{r}
 library(dplyr)
 library(tibble)
@@ -11,86 +13,14 @@ library(lmerTest)
 library(broom.mixed)
 ```
 
-load in crypt metadata and atrributions 
+load in crypt metadata, attributions and summary rates
 ```{r}
 crypt_metadata<-read.csv('../Data/biopsy_metadata.csv')
 crypt_signature_attributions<-read.csv('../Data/crypt_signature_attributions.csv')
+background_summary_rates_df<-read.csv('../Data/background_mutation_rates.csv')
 ```
 
-## a : reconstruct background mutation rates :
-perform for sbs mutations
-```{r}
-## annotate biopsies and patients :
-crypt_signature_attributions<-left_join(crypt_signature_attributions, crypt_metadata,by=c('patient','biopsy'))%>%
-  group_by(biopsy)%>%
-  
-  # annotate biopsies by colibactin status :
-  mutate(biopsy_colibactin_pos=sum(SBS88>0 & ID18>0,na.rm=T)>1,     # both present in at least 2 crypts
-         SBS89_ID25_biopsy_pos=sum(SBS89>0 & ID25>0,na.rm=T)>1)%>%  # both present in at least 2 crypts
-  ungroup()%>%
-  group_by(patient)%>%
-  mutate(patient_colibactin_pos=(sum(biopsy_colibactin_pos,na.rm=T)>0),   # at least one biopsy positive
-         patient_SBS89_ID25_pos=sum(SBS89_ID25_biopsy_pos,na.rm=T)>0,     # at least one biopsy positive
-
-  # adjust SBS and ID burdens for sensitivity derived from coverage and median vaf :  
-         across(starts_with('SBS'),~as.numeric(.x) /sensitivitySBS),
-         snv_muts=as.numeric(snv_muts)/sensitivitySBS,
-         indel_muts=as.numeric(indel_muts)/sensitivityID,
-  
-         SBSBackground=SBS1+SBS5+SBS18)  # calculate background SBS mutations
-
-## create dataframe for assessing those individuals who are colibactin negative, SBSB89/ID25 neg and histologically normal
-background_df<-crypt_signature_attributions %>%
-  filter(cohort!='IBD'&colonoscopy_finding != 'FAP' & SBS89_ID25_biopsy_pos==FALSE &patient_colibactin_pos==FALSE) age_location_lmer_ml<-lmer(SBSBackground ~ age:location+ (1 | patient),data = background_df) 
-
-## construct summary dataframe :
-sbs_conf <- as.data.frame(confint(age_location_lmer_ml)) %>%
-  rownames_to_column("location") %>%
-  rename(lower_ci = `2.5 %`, upper_ci = `97.5 %`)
-
-sbs_summary <- tidy(age_location_lmer_ml, conf.int = TRUE) %>%
-  filter(str_detect(term, "age:location")) %>%
-  mutate(location = str_remove(term, "age:location"),
-    mut_type = "SBS",
-    across(c(estimate, conf.low, conf.high), round, 0),
-    text = paste0(estimate, " mutations/year [", conf.low, ", ", conf.high, "]")) %>%
-  select(mut_type,location, Estimate = estimate, lower_ci = conf.low, upper_ci = conf.high, text)
-# Store intercept value
-sbs_summary$intercept <- round(summary(age_location_lmer_ml)$coefficients['(Intercept)','Estimate'],0)
-```
-
-repeat for indels
-```{r}
-## lmer for indel rates :
-indel_age_location_lmer_ml<-lmer(indel_muts ~ age:location + (1| patient), data=background_df)
-
-## construct summary dataframe :
-id_conf<-as.data.frame(confint(indel_age_location_lmer_ml))%>%
-  rownames_to_column(var='location')%>%
-  rename(lower_ci = `2.5 %`, upper_ci = `97.5 %`)
-
-id_summary<-tidy(indel_age_location_lmer_ml, conf.int = TRUE) %>%
-  filter(str_detect(term, "age:location")) %>%
-  mutate(location = str_remove(term, "age:location"),
-    mut_type = "ID",
-    across(c(estimate, conf.low, conf.high), round, 1),
-    text = paste0(estimate, " mutations/year [", conf.low, ", ", conf.high, "]")
-  ) %>%
-  select(mut_type, location, Estimate = estimate, lower_ci = conf.low, upper_ci = conf.high, text)
-# Store intercept value
-id_summary$intercept <- round(summary(indel_age_location_lmer_ml)$coefficients['(Intercept)','Estimate'],0)
-```
-
-combine the above outputs
-```{r}
-## tabulate all the mutational rates :
-sbs_summary$mut_type='SBS'
-id_background_summary$mut_type='ID'
-background_rates_df<-rbind(sbs_summary,id_summary)%>%
-  dplyr::select(location, mut_type,Estimate)
-```
-
-# b : construct mutational age plot :
+# a : construct mutational age plot :
 ## i  construct mutational age dataframe
 ```{r}
 ## create a dataframe for mutational age analysis
@@ -98,17 +28,17 @@ mutational_age_df<-left_join(crypt_metadata,crypt_signature_attributions, by=c('
   ungroup()%>%
   # adjust all for sensitvity
   mutate(across(starts_with('SBS'), ~.x / sensitivitySBS),
-         indel_muts = as.numeric(indel_muts) / sensitivityID)%>%
+         indel_total_burden = as.numeric(indel_total_burden) / sensitivityID)%>%
   
   # calculate per crypt totals for mutational signatures :
-  mutate(SBS=SBS1+SBS5+SBS18+SBS88+SBS89, ID=indel_muts)%>%
-  dplyr::select(patient, biopsy,cohort,crypt,location,site, SBS, ID, age,biopsy_colibactin_pos,SBS89_ID25_biopsy_pos) %>%
+  mutate(SBS=SBS1+SBS5+SBS18+SBS88+SBS89, ID=indel_total_burden)%>%
+  dplyr::select(patient, biopsy,cohort,crypt,location,site, SBS, ID, age,biopsy_colibactin_pos,biopsy_SBS89_ID25_pos) %>%
   
   # convert to longer format to facilitate plotting below
   pivot_longer(cols=c("SBS", "ID"),names_to='mut_type',values_to='mutation')%>%
   
   # join with brackground rates to determine mutational age :
-  left_join(background_rates_df,by=c('location','mut_type')) %>%
+  left_join(background_summary_rates_df,by=c('location','mut_type')) %>%
   mutate(mutational_age=mutation / Estimate)
 
 ```
@@ -125,12 +55,12 @@ plot_mutational_age<-mutational_age_df%>%
             cohort=first(cohort),
             crypts = n(),
             biopsy_colibactin_pos=any(biopsy_colibactin_pos),
-            SBS89_ID25_biopsy_pos=any(SBS89_ID25_biopsy_pos),
+            biopsy_SBS89_ID25_pos=any(biopsy_SBS89_ID25_pos),
             .groups = "drop"
   ) %>%
   
   mutate(signature_anotation=case_when(biopsy_colibactin_pos==TRUE ~'colibactin_mutagenesis',
-                                      SBS89_ID25_biopsy_pos==TRUE ~ 'SBS89_ID25_mutagenesis', 
+                                      biopsy_SBS89_ID25_pos==TRUE ~ 'SBS89_ID25_mutagenesis', 
                                       .default='only_background_mutagenesis'))%>%
   
   # to facilitate plot, turn Indels into negative numbers :
@@ -147,8 +77,8 @@ plot_mutational_age<-mutational_age_df%>%
 
 ## create labels for x-axis
 age_labs <- mutational_age_df %>%
-  distinct(biopsy, age, location) %>%
-  arrange(location, age) %>%
+  distinct(biopsy, age, site) %>%
+  arrange(site, age) %>%
   mutate(age=round(age,digits=0), 
          age_label = ifelse(age != lag(age), age, ""),
          age_label = replace_na(age_label, "2")) %>%
@@ -163,7 +93,7 @@ age_breaks <- names(age_labels)
 ```{r}
 
 ## plot the mutational age:
-svg("/Users/hm14/Downloads/mutational_age_colibactin_frequency_25feb.svg", width = 16, height = 8, bg = "transparent")
+svg("~/mutational_age_colibactin_frequency.svg", width = 16, height = 8, bg = "transparent")
 
 ggplot(plot_mutational_age, aes(y = mutational_age, x = fct_reorder(biopsy, age), fill = signature_anotation)) +
   
@@ -230,6 +160,7 @@ right_sbs_mut_age_ml=summary(lmer(SBS~biopsy_colibactin_pos+(1|cohort)+(1|patien
 right_id_mut_age_ml=summary(lmer(ID~biopsy_colibactin_pos+(1|cohort)+(1|patient),data=compare_mutation_age_df[compare_mutation_age_df$site=='Right',]))$coefficients
 
 
+## print the model outputs
 print(paste0('Left SBS mutational age : ', round(left_sbs_mut_age_ml[2],digits=0), ' [', round(left_sbs_mut_age_ml[2]-1.96*left_sbs_mut_age_ml[4],digits=0),', ', round(left_sbs_mut_age_ml[2]+1.96*left_sbs_mut_age_ml[4],digits=0),']'))
 
 print(paste0('Left ID mutational age : ', round(left_id_mut_age_ml[2],digits=0), ' [', round(left_id_mut_age_ml[2]-1.96*left_id_mut_age_ml[4],digits=1),', ', round(left_id_mut_age_ml[2]+1.96*left_id_mut_age_ml[4],digits=0),']'))
