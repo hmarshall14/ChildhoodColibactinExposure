@@ -1,0 +1,68 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# SUPPLEMENTARY 3 : ATTRIBUTION TO CODING MUTATIONS:
+## a : create a plot for attributions
+```{r}
+coding_attribution<-read.table('../Signatures/Sigprofiler_SBS_Coding_Mutations/Assignment/Assignment_Solution/Activities/Assignment_Solution_Activities.txt',header=T,sep='\t')%>%
+  gather(signature, count, -Samples)%>%
+  group_by(Samples)%>%
+  mutate(prop=count / sum(count))
+
+coding_attribution$signature=factor(coding_attribution$signature,levels=c('SBS1','SBS5','SBS18','SBS88','SBS89'))
+coding_attribution$Samples=factor(coding_attribution$Samples,                          levels=c("all_muts_compiled",'all_missense','all_nonsense' ))
+```
+
+```{r}
+## plot attributions 
+png('/Users/hm14/Downloads/coding_attributions.png',width=1200,height=800,res=150)
+ggplot(data=coding_attribution,aes(x=Samples,y=prop*100,fill=signature))+
+  geom_bar(stat='identity',position='stack')+
+  scale_fill_manual(breaks=c('SBS1','SBS5','SBS18','SBS88','SBS89'),
+                    labels=c('SBS1','SBS5','SBS18','SBS88','SBS89'),
+                    values=c("wheat2","powderblue","darkslateblue","maroon4","darkolivegreen2"))+
+  scale_x_discrete(breaks=c("all_muts_compiled",'all_missense','all_nonsense'),
+                   labels=c('All Mutations\n[n=589,876]', 'All Missense\nMutations\n[n=6,047]','All Nonsense\nMutations\n[n=341]'))+
+  labs(y='Mutational Signautre Attribution [%Proportion]',fill='Signature')+
+  theme_classic()+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_text(size=10,face='bold'),
+        axis.title.y=element_text(size=12,face='bold'),
+        legend.title=element_text(size=12,face='bold'),
+        )
+dev.off()
+```
+
+
+# SUPPLEMENTARY FIGURE 5 : ASSIGNMENT FOR EARLY PHYLOGENETIC BRANCHES
+```{r}
+phylogenetic_branches<-read.table('../Signatures/Sigprofiler_SBS_Earliest_Branches/Assignment_Solution/Activities/Assignment_Solution_Activities.txt',header=T,sep='\t')%>%
+  gather(signature, count, -Samples)%>%
+  mutate(Samples=case_when(Samples=='all_patient_branches_less_than_50_max_end_100_unique'~'All Donors',
+                           Samples=='coli_pos_patient_branches_less_than_50_max_end_100_unique'~'Colibactin Positive Donors',
+                           TRUE ~ 'Colibactin Negative Donors'),
+         Samples=factor(Samples,levels=c('All Donors','Colibactin Positive Donors','Colibactin Negative Donors')))
+```
+
+## plot output :
+```{r}
+png('/Users/hm14/Downloads/early_branches_attribution.png',width=1000, height=600,res=150)
+ggplot(data=phylogenetic_branches, aes(x=Samples, y=count, fill=signature))+
+  geom_bar(stat = "identity") +
+  scale_x_discrete(breaks=c('All Donors','Colibactin Positive Donors','Colibactin Negative Donors'),
+                   labels=c('All Donors','Colibactin Positive\nDonors','Colibactin Negative\nDonors'))+
+  scale_fill_manual(breaks=c('SBS1','SBS5','SBS18','SBS88','SBS89'),
+                    labels=c('SBS1','SBS5','SBS18','SBS88','SBS89'),
+                    values=c("wheat2","powderblue","darkslateblue","maroon4","darkolivegreen2"))+
+  labs(y='Mutational Signautre Attribution',fill='Signature')+
+  theme_classic()+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_text(size=10,face='bold'),
+        axis.title.y=element_text(size=12,face='bold'),
+        legend.title=element_text(size=12,face='bold'),
+        
+        )
+dev.off()
+```

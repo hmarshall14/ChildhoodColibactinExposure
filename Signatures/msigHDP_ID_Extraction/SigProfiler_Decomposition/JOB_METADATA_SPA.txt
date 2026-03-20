@@ -1,0 +1,52 @@
+THIS FILE CONTAINS THE METADATA ABOUT SYSTEM AND RUNTIME
+
+
+-------System Info-------
+Operating System Name: Linux
+Nodename: farm22-head1
+Release: 5.15.0-164-generic
+Version: #174-Ubuntu SMP Fri Nov 14 20:25:16 UTC 2025
+
+-------Python and Package Versions------- 
+Python Version: 3.11.6
+SigProfilerPlotting Version: 1.3.24
+SigProfilerMatrixGenerator Version: 1.2.30
+SigProfilerAssignment Version: 0.1.4
+Pandas version: 1.5.3
+Numpy version: 1.26.1
+
+--------------EXECUTION PARAMETERS--------------
+INPUT DATA
+	input_type: matrix
+	output: msigHDP_indels_patients/02_output/SigPro_Deconv_Edit_Depth/
+	samples: msigHDP_indels_patients/01_input/sigpro_matrix.txt
+	reference_genome: GRCh38
+	context_types: 96
+	exome: False
+COSMIC MATCH
+	cosmic_version: 3.4
+	nnls_add_penalty: 0.05
+	nnls_remove_penalty: 0.01
+	initial_remove_penalty: 0.05
+	de_novo_fit_penalty: 0.02
+	export_probabilities: True
+	collapse_to_SBS96: True
+	denovo_refit_option: False
+	decompose_fit_option: True
+	cosmic_fit_option: False
+
+-------Analysis Progress------- 
+[2026-01-13 04:50:58] Analysis started: 
+
+ Decomposing De Novo Signatures  .....
+ [2026-01-13 04:50:58] Assigning decomposed signature 
+
+ Finished Decompose fitting! 
+Execution time:0:00:05.574336
+
+[2026-01-13 04:51:04] Analysis ended: 
+
+-------Job Status------- 
+Assignment of mutational signatures completed successfully! 
+Total execution time: 0:00:05 
+Results can be found in:  msigHDP_indels_patients/02_output/SigPro_Deconv_Edit_Depth/  folder

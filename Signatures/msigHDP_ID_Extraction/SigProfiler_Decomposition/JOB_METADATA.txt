@@ -1,0 +1,19 @@
+THIS FILE CONTAINS THE METADATA ABOUT SYSTEM AND RUNTIME
+
+
+-------System Info-------
+Operating System Name: Linux
+Nodename: node-11-3-4
+Release: 5.15.0-141-generic
+Version: #151-Ubuntu SMP Sun May 18 21:35:19 UTC 2025
+
+-------Python and Package Versions------- 
+Python Version: 3.11.6
+SigProfilerExtractor Version: 1.1.24
+SigProfilerPlotting Version: 1.3.24
+SigProfilerMatrixGenerator Version: 1.2.30
+SigProfilerAssignment Version: 0.1.4
+Pandas version: 1.5.3
+Numpy version: 1.26.1
+Scipy version: 1.13.1
+Scikit-learn version: 1.3.2

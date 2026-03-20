@@ -1,0 +1,6 @@
+all_muts_compiled	Y	14381043	TTGCAT>ATGCAA
+all_muts_compiled	Y	16127658	AAAAA>TAAAT
+all_non_coding_compiled	Y	14381043	TTGCAT>ATGCAA
+all_non_coding_compiled	Y	16127658	AAAAA>TAAAT
+all_notcoding_15Feb	Y	14381043	TTGCAT>ATGCAA
+all_notcoding_15Feb	Y	16127658	AAAAA>TAAAT
