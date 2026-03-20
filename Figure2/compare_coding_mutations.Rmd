@@ -64,7 +64,7 @@ crypt_dnds_annot_sum <- crypt_dnds_annot %>%
   arrange(sample)
 ```
 
-## iii : test associations for mutations
+## b : test associations for mutations
 ```{r}
 
 fit_effect_model <- function(effect) {
@@ -143,7 +143,6 @@ ggplot(crypt_dnds_annot_sum, aes(x = biopsy_colibactin_pos, y = muts)) +
   )
 dev.off()
 ```
-
 
 ## d : cross validate with driver genes :
 driver gene list taken from Cornish, A. J. et al. Nature, 2024
