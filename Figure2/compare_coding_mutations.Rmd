@@ -9,23 +9,27 @@ using dNdSsc (Methods)
 
 # a : load in dnds all compi
 ```{r}
+library(dplyr)
+library(readxl)
 library(lmerTest)
 library(tidyverse)
-library(dplyr)
+
 library(stringr)
 ```
 
 ```{r}
+crypt_metadata<-read.csv('../Data/biopsy_metadata.csv')
 dnds_all_mutations <- read.csv("../Data/dnds_all_mutations.csv")
 crypt_signature_attributions <- read.csv('../Data/crypt_signature_attributions.csv')
-
+```
+```{r}
 ## combine crypt annotation of colibactin positive with dNdS outputs :
-colibactin_crypts <- crypt_signature_attributions %>%
+colibactin_crypts <- left_join(crypt_metadata,crypt_signature_attributions,by=c('biopsy','patient')) %>%
   select(patient,biopsy,crypt, biopsy_colibactin_pos,age,location,cohort)
 
 # combine with dNdS annotation :
 crypt_dnds_annot <- colibactin_crypts |>
-  left_join(dnds_all_mutations, by = c("sample"='sampleID')) |>
+  left_join(dnds_all_mutations, by = c("crypt"='sampleID')) |>
   mutate(
     Effect = case_when(
       Effect == "nonsense" ~ "Nonsense",
@@ -48,7 +52,7 @@ crypt_dnds_annot$location=as.factor(crypt_dnds_annot$location)
 ## summarise for each crypt, the number of missense, nonsense, indels, synonymous  mutations:
 # create summary
 crypt_dnds_annot_sum <- crypt_dnds_annot %>%
-  group_by(sample, Effect) %>%
+  group_by(crypt, Effect) %>%
   summarise(
     patient=dplyr::first(patient),
     biopsy=dplyr::first(biopsy),
@@ -60,8 +64,8 @@ crypt_dnds_annot_sum <- crypt_dnds_annot %>%
   mutate(Effect = factor( Effect, levels = c("Missense", "Nonsense", "Indels", "Synonymous"))) %>%
   pivot_wider(names_from = Effect, values_from = muts)%>%
   mutate(across(c('Indels','Missense','Synonymous','Nonsense'), ~ replace_na(.x,0)))%>%
-  gather(Effect,muts,-sample,-patient,-biopsy,-age,-biopsy_colibactin_pos,-location)%>%
-  arrange(sample)
+  gather(Effect,muts,-crypt,-patient,-biopsy,-age,-biopsy_colibactin_pos,-location)%>%
+  arrange(crypt)
 ```
 
 ## b : test associations for mutations
@@ -148,7 +152,7 @@ dev.off()
 driver gene list taken from Cornish, A. J. et al. Nature, 2024
 ```{r}
 ## read in the list from cornish et al.
-driver_genes_list<-read_excel('../Data/41586_2024_7747_MOESM4_ESM.xlsx',sheet=5,skip=7)
+driver_genes_list<-read_excel('../Data/CRC_Drivers_Cornish_Nature/41586_2024_7747_MOESM4_ESM.xlsx',sheet=5,skip=7)
 driver_genes<-driver_genes_list[1]
 
 ## intersect with the dnds annot sum:

@@ -4,6 +4,11 @@ output: html_notebook
 ---
 
 R notebook for the reconstruction of Supplementary FIgure 6 of E. Coli and pks gene island mapping from unmapped reads
+```{r}
+library(ggplot2)
+library(dplyr)
+library(stringr)
+```
 
 ```{r}
 metagenomics_master<-read.csv('../Data/e_coli_pks_gene_mapping_outputs.csv')

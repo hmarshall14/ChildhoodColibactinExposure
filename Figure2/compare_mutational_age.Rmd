@@ -8,8 +8,10 @@ load libaries
 ```{r}
 library(dplyr)
 library(tibble)
+library(ggplot2)
 library(stringr)
 library(lmerTest)
+library(tidyverse)
 library(broom.mixed)
 ```
 
@@ -174,6 +176,7 @@ print(paste0('Right ID mutational age : ',round(right_id_mut_age_ml[2],digits=0)
 ### iii : mutational ages for PD69095 and PD68018 :
 ```{r}
 plot_mutational_age%>%
+  mutate(mutational_age=abs(mutational_age))%>%
   filter(str_detect(biopsy, 'PD69095|PD68018'))%>%
   select(biopsy, site, age, mut_type,mutational_age)
 ```

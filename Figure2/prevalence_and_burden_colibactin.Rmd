@@ -11,6 +11,7 @@ library(dplyr)
 library(stringr)
 library(tidyverse)
 library(lmerTest)
+library(ggplot2)
 library(ggh4x)
 library(broom.mixed)
 ```
@@ -48,10 +49,10 @@ cohort_sum_table<-left_join(crypt_signature_attributions, crypt_metadata,by=c('p
   as.matrix()
 
 ## summarise by cohort :
-n_normal_pos=cohort_sum_table['IBD','TRUE']
-prop_normal_pos=round(cohort_sum_table['IBD','TRUE'] / rowSums(cohort_sum_table)['IBD']*100)
-n_ibd_pos=cohort_sum_table['Normal','TRUE']
-prop_ibd_pos=round(cohort_sum_table['Normal','TRUE'] / rowSums(cohort_sum_table)['Normal']*100)
+n_ibd_pos=cohort_sum_table['IBD','TRUE']
+prop_ibd_pos=round(cohort_sum_table['IBD','TRUE'] / rowSums(cohort_sum_table)['IBD']*100)
+n_normal_pos=cohort_sum_table['Normal','TRUE']
+prop_normal_pos=round(cohort_sum_table['Normal','TRUE'] / rowSums(cohort_sum_table)['Normal']*100)
 
 ## print the outputs
 print(paste0('Normal patients positive : n=',n_normal_pos))  # n=14 patients

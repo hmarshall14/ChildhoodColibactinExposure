@@ -5,9 +5,11 @@ output: html_notebook
 
 load in libraries
 ```{r}
+library(ggplot2)
 library(dplyr)
 library(tibble)
 library(stringr)
+library(tidyverse)
 library(lmerTest)
 library(broom.mixed)
 ```
@@ -387,7 +389,7 @@ cohort_comparison_summary<-data.frame(summary(age_location_cohort_lmer_ml)$coeff
 
 print model outputs
 ```{r}
-print(cohort_comparison_summary) # Estimate : -193 mutations [-310, -76] - indicates lower in Normal
+print(cohort_comparison_summary) # Estimate : -193 mutations [-310, -76] '-' indicates lower in Normal
 ```
 ### ii : test each background signature
 ```{r}
@@ -439,8 +441,6 @@ print(id_ibd_summary)
 ## d : burdens of structural variants : 
 ```{r}
 structural_variant_df<-read.csv('../Data/structural_variants.csv')
-crypt_signature_attributions<-read.csv('../Data/crypt_signature_attributions.csv')
-crypt_metadata<-read.csv('../Data/biopsy_metadata.csv')
 ```
 
 number of unique structural variants :

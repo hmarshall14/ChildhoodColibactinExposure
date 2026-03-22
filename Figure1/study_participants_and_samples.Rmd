@@ -7,6 +7,7 @@ output: html_notebook
 ```{r}
 library(dplyr)
 library(stringr)
+library(tidyverse)
 library(ComplexHeatmap)
 library(circlize)
 library(wesanderson)
@@ -22,7 +23,7 @@ crypt_signature_attributions<-read.csv('../Data/crypt_signature_attributions.csv
 state summary of number of crypts / biopsies / donors 
 ```{r}
 # Number of crypts / biopsies / patients
-crypts_included <- nrow(crypt_metadata) 
+crypts_included <- nrow(crypt_signature_attributions) 
 biopsies_included <- length(unique(crypt_metadata$biopsy))
 donors_included <- length(unique(crypt_metadata$patient))
 
@@ -134,8 +135,8 @@ crypt_metadata %>%
 ```{r}
 # Median sequencing coverage / total snvs / indel muts
 median_cov <- median(crypt_signature_attributions$coverage, na.rm = TRUE)
-total_snvs <- sum(as.numeric(crypt_signature_attributions$snv_muts), na.rm = TRUE)
-total_indels <- sum(as.numeric(crypt_signature_attributions$indel_muts), na.rm = TRUE)
+total_snvs <- sum(as.numeric(crypt_signature_attributions$snv_total_burden), na.rm = TRUE)
+total_indels <- sum(as.numeric(crypt_signature_attributions$indel_total_burden), na.rm = TRUE)
 
 print(paste0("Median coverage: ", median_cov))
 print(paste0("Total SNVs: ", total_snvs))
@@ -189,7 +190,7 @@ ha <- HeatmapAnnotation(
     'Normal'                               = 'darkolivegreen4',
     'Infection'                            = 'lightskyblue4',
     'Familial Adenomatous Polyposis'       = 'firebrick4',
-       'Juvenile Polyp'                       = 'pink3',
+    'Juvenile Polyp'                       = 'pink3',
     'Lymphocytic gastritis'                = 'lightsalmon', 
     'Inflammatory Bowel Disease Unclassified' = 'burlywood3',
     "Crohn's Disease"                      = 'tan4',
@@ -202,7 +203,7 @@ ha <- HeatmapAnnotation(
 n_patients <- nrow(patient_heatmap_metadata)
 
 ## plot the heatmap :
-svg('childhood_colon_metadata.svg', width=12,height=4,bg='transparent')
+svg('~/childhood_colon_metadata.svg', width=12,height=4,bg='transparent')
 draw(
   Heatmap(
     matrix(1, nrow = 0, ncol = n_patients),
