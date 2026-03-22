@@ -436,3 +436,55 @@ print the summary dataframe
 ```{r}
 print(id_ibd_summary)
 ```
+## d : burdens of structural variants : 
+```{r}
+structural_variant_df<-read.csv('../Data/structural_variants.csv')
+crypt_signature_attributions<-read.csv('../Data/crypt_signature_attributions.csv')
+crypt_metadata<-read.csv('../Data/biopsy_metadata.csv')
+```
+
+number of unique structural variants :
+```{r}
+structural_variant_df%>%
+  filter(!duplicated(paste0(chromosome1, start1,start2,patient)))%>%
+  nrow()
+```
+
+crypts with a structural variant :
+```{r}
+length(structural_variant_df$crypt)
+```
+
+breakdown for structural variants by type :
+```{r}
+structural_variant_df%>%
+  filter(!duplicated(paste0(chromosome1, start1,start2,patient)))%>%
+  count(type)
+```
+
+list number of structural variants for PD65118 :
+```{r}
+structural_variant_df%>%
+  filter(!duplicated(paste0(chromosome1, start1,start2,patient)))%>%
+  filter(patient=='PD65118')%>%
+  nrow()
+```
+
+test association with colibactin presence
+```{r}
+# create dataframe for testing enrichment in colibactin positivie individuals :
+test_sv_enrichment_df<-structural_variant_df%>%
+  count(crypt,name='structural_variants')%>%
+  left_join(crypt_signature_attributions,.,by=c('crypt'))%>%
+  left_join(crypt_metadata,by=c('biopsy','patient'))%>%
+  mutate(structural_variants=replace_na(structural_variants,0))
+
+# test for enrichment :
+test_sv_enrichment=summary(lmer(structural_variants~patient_colibactin_pos + age + (1|patient),data=test_sv_enrichment_df))
+estimate=round(test_sv_enrichment$coefficients['patient_colibactin_posTRUE','Estimate'],2)
+lower_ci=round(test_sv_enrichment$coefficients['patient_colibactin_posTRUE','Estimate']-1.96*test_sv_enrichment$coefficients['patient_colibactin_posTRUE','Std. Error'],2)
+upper_ci=round(test_sv_enrichment$coefficients['patient_colibactin_posTRUE','Estimate']+1.96*test_sv_enrichment$coefficients['patient_colibactin_posTRUE','Std. Error'],2)
+
+# print the outputs :
+print(paste0('Estimate :', estimate, ' [',lower_ci,', ', upper_ci,']'))
+```
