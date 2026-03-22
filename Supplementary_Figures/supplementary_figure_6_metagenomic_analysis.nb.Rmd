@@ -1,0 +1,44 @@
+---
+title: "Supplementary Figure 6 : E. Coli Mapping"
+output: html_notebook
+---
+
+R notebook for the reconstruction of Supplementary FIgure 6 of E. Coli and pks gene island mapping from unmapped reads
+
+```{r}
+metagenomics_master<-read.csv('../Data/e_coli_pks_gene_mapping_outputs.csv')
+```
+print summaries from E. Coli mapping :
+```{r}
+print(paste0('Median mapped by KrakenUniq :', median(metagenomics_master$new_est_reads_braken)))
+print(paste0('Lower CI mapped by KrakenUniq :', quantile(metagenomics_master$new_est_reads_braken,0.25)))
+print(paste0('Lower CI mapped by KrakenUniq :', quantile(metagenomics_master$new_est_reads_braken,0.75)))
+print(paste0('E coli identified by metaphlan in : n=', nrow(metagenomics_master[metagenomics_master$coverage_metaphlan>0,])))
+```
+construct plots for E. Coli mapping :
+```{r}
+png('~/krakenuniq_metaphlan.png',width=2400,height=1500, res=300)
+ggplot(data=metagenomics_master, aes(x=estimated_number_of_reads_from_the_clade_metaphlan,y=new_est_reads_braken))+
+  geom_point()+
+  labs(x='Reads Mapped to E. Coli [Metaphlan]',y='Reads Mapped to E. Coli [KrakenUniq]')+
+  theme_classic()+
+  theme(axis.title=element_text(face='bold',size=14))+
+  theme(axis.text=element_text(size=12))
+dev.off()
+```
+
+print summaries for pks mapping :
+```{r}
+print(paste0('Number of crypts with at least one gene mapped : n=', nrow(metagenomics_master[metagenomics_master$bowtie_detected_pks_genes>0,])))
+```
+```{r}
+png('~/bowtie_lexicmap.png',width=2400,height=1800, res=300)
+ggplot(data=metagenomics_master, aes(x=max_qcovGnm_lexicmap,y=bowtie_detected_pks_genes))+
+  geom_point()+
+  labs(x='Proportion of E. Coli IHE3034 Genome Mapped [Lexicmap]',y='Number of genes in the pks cluster mapped [Bowtie2]')+
+  geom_hline(yintercept=8, linetype='dashed')+
+  theme_classic()+
+  theme(axis.title=element_text(face='bold',size=14))+
+  theme(axis.text=element_text(size=12))
+dev.off()
+```

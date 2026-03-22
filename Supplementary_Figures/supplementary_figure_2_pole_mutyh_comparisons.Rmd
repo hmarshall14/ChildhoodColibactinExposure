@@ -230,7 +230,7 @@ mutyh_sbs_ribbons <- mutyh_sbs_rates %>%
   dplyr::mutate(y = slope * age + intercept, y_min = slope_low_ci * age + intercept, y_max = slope_upp_ci * age + intercept)
 
 
-png('~/sbs_inherited_predisp_plots_20Mar.png',width=1200,height=800,res=100)
+png('~/sbs_inherited_predisp_plots.png',width=1200,height=800,res=100)
 ggplot(data=normative_cases_sum[normative_cases_sum$cohort=='colibactin_positive',],aes(x=age,y=SBStotal_median))+
    geom_abline(data=polymerase_sbs_rates,aes(slope=slope,intercept=0,linetype=germline_mutation),col='slateblue')+
     geom_abline(data=mutyh_sbs_rates,aes(slope=slope,intercept=0,linetype=germline_mutation),,col='chocolate4')+
