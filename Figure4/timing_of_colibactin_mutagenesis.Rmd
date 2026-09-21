@@ -50,7 +50,7 @@ compute_branch_sens <- function(tree, tip_sens) {
 ```{r construct pileup of nodes for each crypt}
 ##
 tip_sens<-crypt_signature_attributions%>%
-  select(crypt, sensitivitySBS)%>%
+  dplyr::select(crypt, sensitivitySBS)%>%
   column_to_rownames(var='crypt')
 
 # initiate a data frame for crypt pileup
@@ -104,7 +104,7 @@ crypt_pileup$patient=str_extract(crypt_pileup$crypt,'PD\\d{5}')
 crypt_pileup$biopsy=str_extract(crypt_pileup$crypt,'PD\\d{5}\\w')
 crypt_pileup$branch_id=paste(crypt_pileup$patient,crypt_pileup$node,sep="_")
 crypt_pileup<-crypt_pileup%>%filter(!duplicated(paste0(crypt,branch_id)))
-sens_edge_compiled<-sens_edge_compiled%>% select(-parent,-child)
+sens_edge_compiled<-sens_edge_compiled%>% dplyr::select(-parent,-child)
 ```
 
 ## b : construct a dataframe for timing analysis
@@ -115,7 +115,7 @@ msa_branches<-read.csv('../Signatures/MSA_Attribution/pruned_attribution_paediat
   rename_with(.,~paste0(.x,'_branch'))
 
 ## construct a dataframe with signature attributions adjusted :
-crypt_branch<-crypt_pileup %>% select(biopsy, crypt, branch_id)
+crypt_branch<-crypt_pileup %>% dplyr::select(biopsy, crypt, branch_id)
 signature_attributions_compiled<-left_join(crypt_branch,msa_branches,by=c('branch_id'='X_branch')) %>%
   left_join(sens_edge_compiled,by=c('branch_id'='Samples'))%>%
   mutate(sens=replace_na(sens,1))%>%
@@ -197,17 +197,17 @@ age_df<-unique(subset(crypt_metadata,names=c('biopsy','age')))
 
 ## determine background mutation rates
 background_mut_rates<-crypt_pileup_sig_annotated%>%
-  select(biopsy,crypt,background_muts_crypt_total_msa)%>%
+  dplyr::select(biopsy,crypt,background_muts_crypt_total_msa)%>%
   unique()%>%
   left_join(.,age_df,by=c('biopsy'='biopsy'))%>%
   mutate(background_muts_rate_msa=background_muts_crypt_total_msa/age)%>%
-  select(crypt,background_muts_rate_msa,age)
+  dplyr::select(crypt,background_muts_rate_msa,age)
 ```
 
 ### iii: Extract data for estimated beginnings of exposure
-#### 1. extract the timepoints for latest possible commencement per crypt
 ```{r}
-## extract the timepoints for latest timepoint of commencement per crypt
+#### 1. extract the timepoints for latest possible commencement per crypt : ----
+# extract the timepoints for latest timepoint of commencement per crypt
 commencement_time_points_msa <- crypt_pileup_sig_annotated %>%
   
   # subset positive branches :
@@ -235,11 +235,9 @@ commencement_time_points_msa <- crypt_pileup_sig_annotated %>%
   dplyr::select(patient_id, crypt, contains('age_background_muts_branch_end'))
 
 colnames(commencement_time_points_msa)=str_replace(colnames(commencement_time_points_msa),'background_muts_branch_end','latest_crypt_commencement')
-```
 
-#### 2. extract the timepoints for earliest timepoint of per individual
-```{r}
-## extract the timepoints for earliest timepoint of per individual
+#### 2. extract the timepoints for earliest timepoint of per individual :-------
+# extract the timepoints for earliest timepoint of per individual
 start_commencement_time_points_msa <- crypt_pileup_sig_annotated %>%
   
   # subset colibactin positive branches
@@ -264,11 +262,9 @@ start_commencement_time_points_msa <- crypt_pileup_sig_annotated %>%
 
 # rename column names
 colnames(start_commencement_time_points_msa)=str_replace(colnames(start_commencement_time_points_msa),'background_muts_branch_start','crypt_earliest_commencement')
-```
-#### 3. extract the timepoints of known ongoing exposure :
-Timepoints of ongoing exposure are identified by two sequential positive branches.
 
-```{r}
+#### 3. extract the timepoints of known ongoing exposure :---------------------
+#Timepoints of ongoing exposure are identified by two sequential positive branches.
 ## extract the timepoints for continuation of exposure
 known_pos_timepoints_msa<-crypt_pileup_sig_annotated %>%
   
@@ -294,10 +290,8 @@ known_pos_timepoints_msa<-crypt_pileup_sig_annotated %>%
 
 # rename column names
 colnames(known_pos_timepoints_msa)=str_replace(colnames(known_pos_timepoints_msa),'background_muts_branch_start','known_pos_timepoint')
-```
-#### 4. extract the timepoints of cessation of exposure per crypt :
-These are identified by identifying branches where there is a preceding positive branch but it is negative
-```{r}
+
+#### 4. extract the timepoints of cessation of exposure per crypt :-------------
 ## extract the timepoints of cessation of exposure per crypt :
 cessation_timepoints_msa <- crypt_pileup_sig_annotated %>%
   
