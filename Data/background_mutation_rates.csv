@@ -1,7 +1,7 @@
 mut_type,location,Estimate,lower_ci,upper_ci,intercept
-SBS,Ascending,45,29,60,91
-SBS,Sigmoid,31,15,46,91
-SBS,Transverse,53,38,68,91
-ID,Ascending,1.6,1,2.3,4
-ID,Sigmoid,1.2,0.6,1.8,4
-ID,Transverse,1.8,1.2,2.4,4
+SBS,Ascending,50,39,61,90
+SBS,Sigmoid,39,28,50,90
+SBS,Transverse,48,37,59,90
+ID,Ascending,1.7,1,2.3,10
+ID,Sigmoid,1.1,0.4,1.7,10
+ID,Transverse,2,1.4,2.6,10

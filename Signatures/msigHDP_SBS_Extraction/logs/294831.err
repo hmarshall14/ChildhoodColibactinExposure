@@ -1,0 +1,280 @@
+Using existing out.dir ./02_Output
+Runing run.setup.and.posterior on 1000042
+Guessed number of signatures (= Dirichlet process data clusters) = 3
+Gamma distribution was set to shape = 1 rate (inverse scale) = 20
+Runing run.setup.and.posterior on 2000042
+Guessed number of signatures (= Dirichlet process data clusters) = 3
+Gamma distribution was set to shape = 1 rate (inverse scale) = 20
+Runing run.setup.and.posterior on 3000042
+Guessed number of signatures (= Dirichlet process data clusters) = 3
+Gamma distribution was set to shape = 1 rate (inverse scale) = 20
+Runing run.setup.and.posterior on 4000042
+Guessed number of signatures (= Dirichlet process data clusters) = 3
+Gamma distribution was set to shape = 1 rate (inverse scale) = 20
+Runing run.setup.and.posterior on 5000042
+Guessed number of signatures (= Dirichlet process data clusters) = 3
+Gamma distribution was set to shape = 1 rate (inverse scale) = 20
+Runing run.setup.and.posterior on 6000042
+Guessed number of signatures (= Dirichlet process data clusters) = 3
+Gamma distribution was set to shape = 1 rate (inverse scale) = 20
+Runing run.setup.and.posterior on 7000042
+Guessed number of signatures (= Dirichlet process data clusters) = 3
+Gamma distribution was set to shape = 1 rate (inverse scale) = 20
+Runing run.setup.and.posterior on 8000042
+Guessed number of signatures (= Dirichlet process data clusters) = 3
+Gamma distribution was set to shape = 1 rate (inverse scale) = 20
+Runing run.setup.and.posterior on 9000042
+Guessed number of signatures (= Dirichlet process data clusters) = 3
+Gamma distribution was set to shape = 1 rate (inverse scale) = 20
+Runing run.setup.and.posterior on 10000042
+Guessed number of signatures (= Dirichlet process data clusters) = 3
+Gamma distribution was set to shape = 1 rate (inverse scale) = 20
+Runing run.setup.and.posterior on 11000042
+Guessed number of signatures (= Dirichlet process data clusters) = 3
+Gamma distribution was set to shape = 1 rate (inverse scale) = 20
+Runing run.setup.and.posterior on 12000042
+Guessed number of signatures (= Dirichlet process data clusters) = 3
+Gamma distribution was set to shape = 1 rate (inverse scale) = 20
+Runing run.setup.and.posterior on 13000042
+Guessed number of signatures (= Dirichlet process data clusters) = 3
+Gamma distribution was set to shape = 1 rate (inverse scale) = 20
+calling hdp_init 2026-09-26 11:30:16
+calling hdp_init 2026-09-26 11:30:16
+calling hdp_init 2026-09-26 11:30:16
+calling hdp_init 2026-09-26 11:30:16
+calling hdp_init 2026-09-26 11:30:16
+calling hdp_init 2026-09-26 11:30:16
+calling hdp_init 2026-09-26 11:30:16
+calling hdp_init 2026-09-26 11:30:16
+calling hdp_init 2026-09-26 11:30:16
+calling hdp_init 2026-09-26 11:30:16
+calling hdp_init 2026-09-26 11:30:16
+calling hdp_init 2026-09-26 11:30:16
+Runing run.setup.and.posterior on 14000042
+Guessed number of signatures (= Dirichlet process data clusters) = 3
+Gamma distribution was set to shape = 1 rate (inverse scale) = 20
+calling hdp_init 2026-09-26 11:30:16
+Runing run.setup.and.posterior on 15000042
+Guessed number of signatures (= Dirichlet process data clusters) = 3
+Gamma distribution was set to shape = 1 rate (inverse scale) = 20
+calling hdp_init 2026-09-26 11:30:16
+calling hdp_init 2026-09-26 11:30:16
+Runing run.setup.and.posterior on 16000042
+Guessed number of signatures (= Dirichlet process data clusters) = 3
+Gamma distribution was set to shape = 1 rate (inverse scale) = 20
+Runing run.setup.and.posterior on 17000042
+Guessed number of signatures (= Dirichlet process data clusters) = 3
+Gamma distribution was set to shape = 1 rate (inverse scale) = 20
+calling hdp_init 2026-09-26 11:30:16
+Runing run.setup.and.posterior on 18000042
+Guessed number of signatures (= Dirichlet process data clusters) = 3
+Gamma distribution was set to shape = 1 rate (inverse scale) = 20
+calling hdp_init 2026-09-26 11:30:16
+Runing run.setup.and.posterior on 19000042
+Guessed number of signatures (= Dirichlet process data clusters) = 3
+Gamma distribution was set to shape = 1 rate (inverse scale) = 20
+calling hdp_init 2026-09-26 11:30:16
+Runing run.setup.and.posterior on 20000042
+Guessed number of signatures (= Dirichlet process data clusters) = 3
+Gamma distribution was set to shape = 1 rate (inverse scale) = 20
+calling hdp_init 2026-09-26 11:30:16
+calling hdp_init 2026-09-26 11:30:16
+calling hdp_setdata 2026-09-26 11:30:17
+calling hdp_setdata 2026-09-26 11:30:17
+calling hdp_setdata 2026-09-26 11:30:17
+calling hdp_setdata 2026-09-26 11:30:17
+calling hdp_setdata 2026-09-26 11:30:17
+calling hdp_setdata 2026-09-26 11:30:17
+calling hdp_setdata 2026-09-26 11:30:17
+calling dp_activate 2026-09-26 11:30:17
+calling hdp_setdata 2026-09-26 11:30:17
+calling hdp_setdata 2026-09-26 11:30:17
+calling hdp_setdata 2026-09-26 11:30:17
+calling hdp_setdata 2026-09-26 11:30:17
+calling hdp_setdata 2026-09-26 11:30:17
+calling hdp_setdata 2026-09-26 11:30:17
+calling dp_activate 2026-09-26 11:30:17
+calling dp_activate 2026-09-26 11:30:17
+calling dp_activate 2026-09-26 11:30:17
+calling hdp_setdata 2026-09-26 11:30:17
+calling dp_activate 2026-09-26 11:30:17
+calling hdp_setdata 2026-09-26 11:30:17
+calling hdp_setdata 2026-09-26 11:30:17
+calling dp_activate 2026-09-26 11:30:17
+calling hdp_setdata 2026-09-26 11:30:17
+calling hdp_setdata 2026-09-26 11:30:17
+calling dp_activate 2026-09-26 11:30:17
+calling dp_activate 2026-09-26 11:30:17
+calling hdp_setdata 2026-09-26 11:30:17
+calling dp_activate 2026-09-26 11:30:17
+calling dp_activate 2026-09-26 11:30:17
+calling dp_activate 2026-09-26 11:30:17
+calling hdp_setdata 2026-09-26 11:30:17
+calling dp_activate 2026-09-26 11:30:17
+calling dp_activate 2026-09-26 11:30:17
+calling dp_activate 2026-09-26 11:30:17
+calling dp_activate 2026-09-26 11:30:17
+calling dp_activate 2026-09-26 11:30:17
+calling dp_activate 2026-09-26 11:30:17
+calling dp_activate 2026-09-26 11:30:17
+calling dp_activate 2026-09-26 11:30:17
+calling dp_activate 2026-09-26 11:30:17
+calling hdp_posterior, seed = 18000042 2026-09-26 11:30:19
+calling hdp_posterior, seed = 17000042 2026-09-26 11:30:19
+calling hdp_posterior, seed = 19000042 2026-09-26 11:30:19
+calling hdp_posterior, seed = 20000042 2026-09-26 11:30:19
+calling hdp_posterior, seed = 16000042 2026-09-26 11:30:19
+calling hdp_posterior, seed = 10000042 2026-09-26 11:30:19
+calling hdp_posterior, seed = 5000042 2026-09-26 11:30:19
+calling hdp_posterior, seed = 2000042 2026-09-26 11:30:20
+calling hdp_posterior, seed = 7000042 2026-09-26 11:30:20
+calling hdp_posterior, seed = 8000042 2026-09-26 11:30:20
+calling hdp_posterior, seed = 3000042 2026-09-26 11:30:20
+calling hdp_posterior, seed = 12000042 2026-09-26 11:30:20
+calling hdp_posterior, seed = 13000042 2026-09-26 11:30:20
+calling hdp_posterior, seed = 15000042 2026-09-26 11:30:20
+calling hdp_posterior, seed = 14000042 2026-09-26 11:30:21
+calling hdp_posterior, seed = 9000042 2026-09-26 11:30:21
+calling hdp_posterior, seed = 4000042 2026-09-26 11:30:21
+calling hdp_posterior, seed = 6000042 2026-09-26 11:30:21
+calling hdp_posterior, seed = 1000042 2026-09-26 11:30:21
+calling hdp_posterior, seed = 11000042 2026-09-26 11:30:21
+compute sample.chain time: 
+ user.self 937.221
+ sys.self 4.943
+ elapsed 1065.467
+ user.child 0
+ sys.child 0
+compute sample.chain time: 
+ user.self 930.379000000001
+ sys.self 3.728
+ elapsed 1067.486
+ user.child 0
+ sys.child 0
+compute sample.chain time: 
+ user.self 917.815
+ sys.self 5.048
+ elapsed 1049.788
+ user.child 0
+ sys.child 0
+compute sample.chain time: 
+ user.self 1002.998
+ sys.self 4.296
+ elapsed 1212.552
+ user.child 0
+ sys.child 0
+compute sample.chain time: 
+ user.self 978.015
+ sys.self 4.556
+ elapsed 1220.949
+ user.child 0
+ sys.child 0
+compute sample.chain time: 
+ user.self 1094.406
+ sys.self 5.055
+ elapsed 1316.314
+ user.child 0
+ sys.child 0
+compute sample.chain time: 
+ user.self 1035.429
+ sys.self 3.824
+ elapsed 1206.263
+ user.child 0
+ sys.child 0
+compute sample.chain time: 
+ user.self 1276.908
+ sys.self 2.8
+ elapsed 1398.205
+ user.child 0
+ sys.child 0
+compute sample.chain time: 
+ user.self 849.286
+ sys.self 1.083
+ elapsed 863.469
+ user.child 0
+ sys.child 0
+compute sample.chain time: 
+ user.self 870.181
+ sys.self 1.252
+ elapsed 920.802
+ user.child 0
+ sys.child 0
+compute sample.chain time: 
+ user.self 1282.988
+ sys.self 3.1
+ elapsed 1429.078
+ user.child 0
+ sys.child 0
+compute sample.chain time: 
+ user.self 1021.625
+ sys.self 1.468
+ elapsed 1066.989
+ user.child 0
+ sys.child 0
+compute sample.chain time: 
+ user.self 1030.942
+ sys.self 2.096
+ elapsed 1076.514
+ user.child 0
+ sys.child 0
+compute sample.chain time: 
+ user.self 1273.578
+ sys.self 3
+ elapsed 1386.697
+ user.child 0
+ sys.child 0
+compute sample.chain time: 
+ user.self 939.450000000001
+ sys.self 0.888999999999999
+ elapsed 940.598
+ user.child 0
+ sys.child 0
+compute sample.chain time: 
+ user.self 1256.83
+ sys.self 1.812
+ elapsed 1260.4
+ user.child 0
+ sys.child 0
+compute sample.chain time: 
+ user.self 1269.412
+ sys.self 2.056
+ elapsed 1294.088
+ user.child 0
+ sys.child 0
+compute sample.chain time: 
+ user.self 1274.047
+ sys.self 1.16
+ elapsed 1275.91
+ user.child 0
+ sys.child 0
+compute sample.chain time: 
+ user.self 1220.574
+ sys.self 1.524
+ elapsed 1222.478
+ user.child 0
+ sys.child 0
+compute sample.chain time: 
+ user.self 1292.567
+ sys.self 1.265
+ elapsed 1293.948
+ user.child 0
+ sys.child 0
+calling extract_components 2026-09-26 13:42:23
+extract_components time: 
+ user.self 378.248
+ sys.self 5.533
+ elapsed 384.756000000001
+ user.child 0
+ sys.child 0
+extracting components 2026-09-26 13:48:49
+extracting signatures exposures 2026-09-26 13:48:49
+Using existing out.dir ./02_Output
+Writing signatures
+Writing exposures
+Writing HDP diagnostics
+Error in gzfile(file, "wb") : cannot open the connection
+Calls: save -> gzfile
+In addition: Warning message:
+In gzfile(file, "wb") :
+  cannot open compressed file './02_output/multi.chains.Rdata', probable reason 'No such file or directory'
+Execution halted

@@ -1,0 +1,98 @@
+MPBoot version 1.1.0 for Linux 64-bit built Mar 23 2018
+Copyright (c) 2016 Diep Thi Hoang, Le Sy Vinh, Tomas Flouri, Alexandros Stamatakis, Arndt von Haeseler and Bui Quang Minh.
+
+Host:    node-13-25 (AVX2, FMA3, 2151 GB RAM)
+Command: mpboot -s PD67984.fasta -bb 1000 -cost e -st DNA
+Seed:    469434 (Using SPRNG - Scalable Parallel Random Number Generator)
+Time:    Tue Sep  1 22:03:30 2026
+Kernel:  AVX
+
+Reading alignment file PD67984.fasta ... Fasta format detected
+Alignment most likely contains DNA/RNA sequences
+Alignment has 13 sequences with 5081 columns and 432 patterns
+ID   Sequence         #Gap/Ambiguity
+1    Ancestral        0    (0.000%)	4
+2    PD67984b_lo0001  132  (2.598%)	4
+3    PD67984b_lo0004  73   (1.437%)	4
+4    PD67984b_lo0003  76   (1.496%)	4
+5    PD67984b_lo0002  125  (2.460%)	4
+6    PD67984c_lo0001  112  (2.204%)	4
+7    PD67984c_lo0002  72   (1.417%)	4
+8    PD67984c_lo0006  111  (2.185%)	4
+9    PD67984c_lo0007  53   (1.043%)	4
+10   PD67984c_lo0005  67   (1.319%)	4
+11   PD67984c_lo0003  88   (1.732%)	4
+12   PD67984c_lo0004  165  (3.247%)	4
+13   PD67984b_lo0006  129  (2.539%)	4
+**** TOTAL            1203 (1.821%)
+Cost matrix satisfies triangular inenquality
+Time for parsimony tree construction: 0.001 seconds
+Parsimony score: 4299
+Reordering patterns in alignment by decreasing order of pattern parsimony... 0.000 seconds
+
+Create initial parsimony tree by phylogenetic likelihood library (PLL)... 0.002 seconds
+Generating 1000 samples for bootstrap approximation...
+
+NOTE: 0.886 MB RAM is required!
+Current best tree score: 4299
+
+Generating 99 parsimony trees... (97 duplicated parsimony trees)
+CPU time: 0
+Finish initializing candidate tree set. Number of distinct locally optimal trees: 3
+Current best score: 4299 / CPU time: 0
+
+Time: 0h:0m:0s
+NOTE: REPS computation is segmented into 2 parts for speed...
+segment#1 ends at 192
+segment#2 ends at 351
+0 seconds.
+RATCHET Iteration 10 / Score: 4299 / Time: 0h:0m:2s
+RATCHET Iteration 20 / Score: 4299 / Time: 0h:0m:2s (0h:0m:9s left)
+RATCHET Iteration 30 / Score: 4299 / Time: 0h:0m:2s (0h:0m:5s left)
+RATCHET Iteration 40 / Score: 4299 / Time: 0h:0m:2s (0h:0m:3s left)
+RATCHET Iteration 50 / Score: 4299 / Time: 0h:0m:2s (0h:0m:2s left)
+RATCHET Iteration 60 / Score: 4299 / Time: 0h:0m:2s (0h:0m:1s left)
+RATCHET Iteration 70 / Score: 4299 / Time: 0h:0m:2s (0h:0m:1s left)
+RATCHET Iteration 80 / Score: 4299 / Time: 0h:0m:2s (0h:0m:0s left)
+RATCHET Iteration 90 / Score: 4299 / Time: 0h:0m:2s (0h:0m:0s left)
+RATCHET Iteration 100 / Score: 4299 / Time: 0h:0m:2s (0h:0m:0s left)
+Optimizing bootstrap trees ...
+100 replicates done
+200 replicates done
+300 replicates done
+400 replicates done
+500 replicates done
+600 replicates done
+700 replicates done
+800 replicates done
+900 replicates done
+1000 replicates done
+CPU Time used:  4 sec.
+NOTE: At the end, 4647 bootstrap candidate trees evaluated.
+Scores of best 5 trees: 
+4299 4299 4299 
+BEST SCORE FOUND : 4299
+Creating bootstrap support values...
+Split supports printed to NEXUS file PD67984.fasta.splits.nex
+
+CPU time used for tree search: 4.197 sec (0h:0m:4s)
+Wall-clock time used for tree search: 6.134 sec (0h:0m:6s)
+Total CPU time used: 4.261 sec (0h:0m:4s)
+Total wall-clock time used: 7.992 sec (0h:0m:7s)
+
+Computing bootstrap consensus tree...
+Reading input file PD67984.fasta.splits.nex...
+13 taxa and 31 splits.
+Consensus tree written to PD67984.fasta.contree
+Parsimony score of consensus tree: 4299
+
+Analysis results written to: 
+  MPBoot report:                 PD67984.fasta.mpboot
+  Maximum-parsimony  tree:       PD67984.fasta.treefile
+
+Maximum parsimony bootstrap approximation results written to:
+  Split support values:          PD67984.fasta.splits.nex
+  Consensus tree:                PD67984.fasta.contree
+  Screen log file:               PD67984.fasta.log
+
+Date and Time: Tue Sep  1 22:03:48 2026

@@ -1,0 +1,110 @@
+MPBoot version 1.1.0 for Linux 64-bit built Mar 23 2018
+Copyright (c) 2016 Diep Thi Hoang, Le Sy Vinh, Tomas Flouri, Alexandros Stamatakis, Arndt von Haeseler and Bui Quang Minh.
+
+Host:    node-13-24 (AVX2, FMA3, 2151 GB RAM)
+Command: mpboot -s PD65128.fasta -bb 1000 -cost e -st DNA
+Seed:    476882 (Using SPRNG - Scalable Parallel Random Number Generator)
+Time:    Tue Sep  8 13:45:47 2026
+Kernel:  AVX
+
+Reading alignment file PD65128.fasta ... Fasta format detected
+Alignment most likely contains DNA/RNA sequences
+Alignment has 23 sequences with 17895 columns and 1360 patterns
+ID   Sequence         #Gap/Ambiguity
+1    Ancestral        0    (0.000%)	4
+2    PD65128c_lo0011  130  (0.726%)	4
+3    PD65128b_lo0001  372  (2.079%)	4
+4    PD65128c_lo0009  223  (1.246%)	4
+5    PD65128c_lo0004  164  (0.916%)	4
+6    PD65128c_lo0001  243  (1.358%)	4
+7    PD65128c_lo0008  261  (1.459%)	4
+8    PD65128b_lo0002  104  (0.581%)	4
+9    PD65128c_lo0021  339  (1.894%)	4
+10   PD65128c_lo0003  334  (1.866%)	4
+11   PD65128c_lo0010  251  (1.403%)	4
+12   PD65128b_lo0004  180  (1.006%)	4
+13   PD65128b_lo0003  105  (0.587%)	4
+14   PD65128c_lo0006  292  (1.632%)	4
+15   PD65128c_lo0007  157  (0.877%)	4
+16   PD65128c_lo0013  245  (1.369%)	4
+17   PD65128c_lo0012  207  (1.157%)	4
+18   PD65128c_lo0016  373  (2.084%)	4
+19   PD65128c_lo0018  236  (1.319%)	4
+20   PD65128c_lo0020  274  (1.531%)	4
+21   PD65128c_lo0014  508  (2.839%)	4
+22   PD65128c_lo0015  331  (1.850%)	4
+23   PD65128c_lo0019  304  (1.699%)	4
+**** TOTAL            5633 (1.369%)
+Cost matrix satisfies triangular inenquality
+Time for parsimony tree construction: 0.046 seconds
+Parsimony score: 14433
+Reordering patterns in alignment by decreasing order of pattern parsimony... 0.003 seconds
+
+Create initial parsimony tree by phylogenetic likelihood library (PLL)... 0.032 seconds
+Generating 1000 samples for bootstrap approximation...
+
+NOTE: 5.172 MB RAM is required!
+Current best tree score: 14433
+
+Generating 99 parsimony trees... (44 duplicated parsimony trees)
+CPU time: 2
+Finish initializing candidate tree set. Number of distinct locally optimal trees: 56
+Current best score: 14433 / CPU time: 2
+
+Time: 0h:0m:2s
+NOTE: REPS computation is segmented into 4 parts for speed...
+segment#1 ends at 32
+segment#2 ends at 96
+segment#3 ends at 448
+segment#4 ends at 1046
+0 seconds.
+RATCHET Iteration 10 / Score: 14433 / Time: 0h:0m:3s
+RATCHET Iteration 20 / Score: 14433 / Time: 0h:0m:4s (0h:0m:17s left)
+RATCHET Iteration 30 / Score: 14433 / Time: 0h:0m:4s (0h:0m:11s left)
+RATCHET Iteration 40 / Score: 14433 / Time: 0h:0m:5s (0h:0m:8s left)
+RATCHET Iteration 50 / Score: 14433 / Time: 0h:0m:5s (0h:0m:6s left)
+RATCHET Iteration 60 / Score: 14433 / Time: 0h:0m:6s (0h:0m:4s left)
+RATCHET Iteration 70 / Score: 14433 / Time: 0h:0m:7s (0h:0m:3s left)
+RATCHET Iteration 80 / Score: 14433 / Time: 0h:0m:7s (0h:0m:2s left)
+RATCHET Iteration 90 / Score: 14433 / Time: 0h:0m:8s (0h:0m:1s left)
+RATCHET Iteration 100 / Score: 14433 / Time: 0h:0m:8s (0h:0m:0s left)
+Optimizing bootstrap trees ...
+100 replicates done
+200 replicates done
+300 replicates done
+400 replicates done
+500 replicates done
+600 replicates done
+700 replicates done
+800 replicates done
+900 replicates done
+1000 replicates done
+CPU Time used:  36 sec.
+NOTE: At the end, 11073 bootstrap candidate trees evaluated.
+Scores of best 5 trees: 
+14433 14433 14433 14433 14433 
+BEST SCORE FOUND : 14433
+Creating bootstrap support values...
+Split supports printed to NEXUS file PD65128.fasta.splits.nex
+
+CPU time used for tree search: 43.809 sec (0h:0m:43s)
+Wall-clock time used for tree search: 46.399 sec (0h:0m:46s)
+Total CPU time used: 44.193 sec (0h:0m:44s)
+Total wall-clock time used: 46.795 sec (0h:0m:46s)
+
+Computing bootstrap consensus tree...
+Reading input file PD65128.fasta.splits.nex...
+23 taxa and 76 splits.
+Consensus tree written to PD65128.fasta.contree
+Parsimony score of consensus tree: 14433
+
+Analysis results written to: 
+  MPBoot report:                 PD65128.fasta.mpboot
+  Maximum-parsimony  tree:       PD65128.fasta.treefile
+
+Maximum parsimony bootstrap approximation results written to:
+  Split support values:          PD65128.fasta.splits.nex
+  Consensus tree:                PD65128.fasta.contree
+  Screen log file:               PD65128.fasta.log
+
+Date and Time: Tue Sep  8 13:46:34 2026

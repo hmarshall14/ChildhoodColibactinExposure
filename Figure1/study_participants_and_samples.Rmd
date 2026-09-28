@@ -1,217 +1,333 @@
 ---
 title: "Study Overview"
-output: html_notebook
+subtitle: "Cohort summary statistics and metadata overview"
+output:
+  github_document:
+    toc: true
+    toc_depth: 3
 ---
 
-## load in libraries
-```{r}
-library(dplyr)
-library(stringr)
-library(tidyverse)
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  comment = "#>"
+)
+```
+
+This notebook summarises the study cohort: the number of crypts, biopsies and
+donors included; their clinical and demographic breakdown; sequencing summary
+statistics; and the cohort overview heatmap (Figure 1a).
+
+## Setup
+
+### Libraries
+
+```{r libraries}
+library(tidyverse)        # dplyr, stringr, tibble, ggplot2, ...
 library(ComplexHeatmap)
 library(circlize)
-library(wesanderson)
 ```
 
-## load in data tables for summary statistics
-```{r}
-crypt_metadata<-read.csv('../Data/biopsy_metadata.csv')
-crypt_signature_attributions<-read.csv('../Data/crypt_signature_attributions.csv')
+### Input data
+
+```{r load-data}
+crypt_metadata <- read.csv("../Data/biopsy_metadata.csv")
+crypt_signature_attributions <- read.csv("../Data/crypt_signature_attributions.csv")
 ```
 
-# CONSTRUCT METADATA FOR ALL STUDY PARTICIPANTS
-state summary of number of crypts / biopsies / donors 
-```{r}
-# Number of crypts / biopsies / patients
-crypts_included <- nrow(crypt_signature_attributions) 
-biopsies_included <- length(unique(crypt_metadata$biopsy))
-donors_included <- length(unique(crypt_metadata$patient))
+`biopsy_metadata.csv` holds one row per crypt with the associated biopsy,
+donor and clinical annotations. `crypt_signature_attributions.csv` holds one
+row per crypt with sequencing coverage and mutational burden.
 
-print(paste0("Crypts included: ", crypts_included))     # n = 836 crypts
-print(paste0("Biopsies included: ", biopsies_included)) # n = 131 biopsies
-print(paste0("Patients included: ", donors_included))   # n = 85 individuals
+## Study participants
+
+### Crypts, biopsies and donors
+
+```{r cohort-totals}
+crypts_included   <- nrow(crypt_signature_attributions)
+biopsies_included <- n_distinct(crypt_metadata$biopsy)
+donors_included   <- n_distinct(crypt_metadata$patient)
+
+cat(
+  sprintf("Crypts included:   %d\n", crypts_included),   # n = 989 crypts
+  sprintf("Biopsies included: %d\n", biopsies_included), # n = 152 biopsies
+  sprintf("Patients included: %d\n", donors_included),   # n = 90 individuals
+  sep = ""
+)
 ```
 
-state breakdown of children by cohort
-```{r}
-# Number of children per cohort
+### Breakdown by cohort
+
+```{r cohort-breakdown}
 cohort_patients <- crypt_metadata %>%
   group_by(cohort) %>%
-  summarise(patients = n_distinct(patient))
+  summarise(patients = n_distinct(patient), .groups = "drop")
 
-# Number of biopsies per cohort
 cohort_biopsies <- crypt_metadata %>%
   group_by(cohort) %>%
-  summarise(biopsies = n_distinct(biopsy))
+  summarise(biopsies = n_distinct(biopsy), .groups = "drop")
 
-print(merge(cohort_patients, cohort_biopsies))
+left_join(cohort_patients, cohort_biopsies, by = "cohort")
 ```
-state breakdown by nationality
-```{r}
+
+### Breakdown by nationality
+
+```{r nationality-breakdown}
+# Expected: Denmark = 17 | UK = 73
 crypt_metadata %>%
   distinct(patient, nationality) %>%
-  group_by(nationality) %>%
-  summarise(patients = n()) # Danish=14 | UK = 71
+  count(nationality, name = "patients")
 ```
-state breakdown by IBD types
-```{r}
-# Patients by IBD subtype
+
+### Breakdown by IBD subtype
+
+```{r ibd-breakdown}
 ibd_patients <- crypt_metadata %>%
   filter(cohort == "IBD") %>%
   group_by(colonoscopy_results) %>%
-  summarise(patients = n_distinct(patient))
+  summarise(patients = n_distinct(patient), .groups = "drop")
 
-# Biopsies by IBD subtype
 ibd_biopsies <- crypt_metadata %>%
   filter(cohort == "IBD") %>%
   group_by(colonoscopy_results) %>%
-  summarise(biopsies = n_distinct(biopsy))
+  summarise(biopsies = n_distinct(biopsy), .groups = "drop")
 
-merge(ibd_patients, ibd_biopsies)
+left_join(ibd_patients, ibd_biopsies, by = "colonoscopy_results")
 ```
-state breakdown of treatment amongst IBD individuals 
-```{r}
+
+### Treatment among individuals with IBD
+
+```{r ibd-treatment}
 crypt_metadata %>%
   filter(cohort == "IBD", treatment != "Nil") %>%
   group_by(treatment) %>%
-  summarise(patients = n_distinct(patient))
+  summarise(patients = n_distinct(patient), .groups = "drop")
 ```
-state breakdown of histologically normal indings
-```{r}
-# Patients
+
+### Histologically normal individuals
+
+```{r histologically-normal}
 histologically_normal_patients <- crypt_metadata %>%
   filter(cohort != "IBD") %>%
   group_by(colonoscopy_finding) %>%
-  summarise(patients = n_distinct(patient))
+  summarise(patients = n_distinct(patient), .groups = "drop")
 
-# Biopsies
 histologically_normal_biopsies <- crypt_metadata %>%
   filter(cohort != "IBD") %>%
   group_by(colonoscopy_finding) %>%
-  summarise(biopsies = n_distinct(biopsy))
+  summarise(biopsies = n_distinct(biopsy), .groups = "drop")
 
-# Merge summaries
-histologically_normal_summary <- merge(histologically_normal_patients, histologically_normal_biopsies)
-```
-```{r}
-#total patients and biopsies
-print(paste0('Histologically normal donors: ', sum(histologically_normal_patients$patients)))
-print(paste0('Histologically normal biopsies: ', sum(histologically_normal_biopsies$biopsies)))
-```
-print the breakdown by colonoscopy finding amongst histologically normal individuals
-```{r}
-print(histologically_normal_summary)
+histologically_normal_summary <- left_join(
+  histologically_normal_patients,
+  histologically_normal_biopsies,
+  by = "colonoscopy_finding"
+)
 ```
 
-state number of biopsies by location :
-```{r}
+Totals:
+
+```{r histologically-normal-totals}
+cat(
+  sprintf("Histologically normal donors:   %d\n", sum(histologically_normal_summary$patients)),
+  sprintf("Histologically normal biopsies: %d\n", sum(histologically_normal_summary$biopsies)),
+  sep = ""
+)
+```
+
+Breakdown by colonoscopy finding:
+
+```{r histologically-normal-summary}
+histologically_normal_summary
+```
+
+### Biopsies by anatomical location
+
+```{r biopsies-by-location}
 crypt_metadata %>%
   group_by(location) %>%
-  summarise(biopsies = n_distinct(biopsy))
+  summarise(biopsies = n_distinct(biopsy), .groups = "drop")
 ```
 
-### v : age and gender of individuals :
-```{r}
-## age breakdown
+### Biopsies per donor
+
+```{r biopsies-per-donor}
+crypt_metadata %>%
+  count(nationality, patient, name = "biopsies_per_donor") %>%
+  count(nationality, biopsies_per_donor, name = "n_donors")
+```
+
+### Age and sex
+
+```{r age-summary}
 crypt_metadata %>%
   distinct(patient, age) %>%
   summarise(
-    median_age = round(median(age, na.rm = TRUE),digits=1),
-    min_age = round(min(age, na.rm = TRUE),digits=1),
-    max_age =round(max(age, na.rm = TRUE),digits=1)
+    median_age = round(median(age, na.rm = TRUE), digits = 1),
+    min_age    = round(min(age, na.rm = TRUE), digits = 1),
+    max_age    = round(max(age, na.rm = TRUE), digits = 1)
   )
 ```
 
-```{r}
-## sex breakdown
+```{r sex-summary}
 crypt_metadata %>%
   distinct(patient, sex) %>%
-  group_by(sex) %>%
-  summarise(count = n()) %>%
+  count(sex, name = "count") %>%
   mutate(proportion = count / sum(count) * 100)
 ```
 
-# COVERAGE AND SEQUENCING STATISTICS :
-```{r}
-# Median sequencing coverage / total snvs / indel muts
-median_cov <- median(crypt_signature_attributions$coverage, na.rm = TRUE)
-total_snvs <- sum(as.numeric(crypt_signature_attributions$snv_total_burden), na.rm = TRUE)
+## Coverage and sequencing statistics
+
+```{r sequencing-stats}
+median_cov   <- median(crypt_signature_attributions$coverage, na.rm = TRUE)
+total_snvs   <- sum(as.numeric(crypt_signature_attributions$snv_total_burden), na.rm = TRUE)
 total_indels <- sum(as.numeric(crypt_signature_attributions$indel_total_burden), na.rm = TRUE)
 
-print(paste0("Median coverage: ", median_cov))
-print(paste0("Total SNVs: ", total_snvs))
-print(paste0("Total indels: ", total_indels))
+cat(
+  sprintf("Median coverage: %s\n", format(median_cov, big.mark = ",")),
+  sprintf("Total SNVs:      %s\n", format(total_snvs, big.mark = ",", scientific = FALSE)),
+  sprintf("Total indels:    %s\n", format(total_indels, big.mark = ",", scientific = FALSE)),
+  sep = ""
+)
 ```
 
-## PLOT HEATMAP FOR COHORT OVERVIEW
-```{r}
-# construct heatmap annotation dataframe :
-patient_heatmap_metadata<-crypt_metadata%>%
-  dplyr::select(patient, age,sex,nationality, colonoscopy_finding)%>%
-  filter(!duplicated(patient))%>%
-  mutate(sex=str_replace(sex,'FEMALE','Female'),
-         sex=str_replace(sex,'MALE','Male'),
-         
-         # reformat the colonoscopy results :
-         colonoscopy_finding=case_when(str_detect(colonoscopy_finding,'IBDUnclassified') ~ 'IBD Unclassified',
-                                       colonoscopy_finding%in%c('CD','UC','FAP','Histologically_Normal','Lymphocytic gastritis','Juvenile Polyp') ~ colonoscopy_finding, 
-                                       colonoscopy_finding%in%c('Threadworm','Infection') ~ 'Infection', # aggregate threadworm and infection for simplicity
-                                       .default='Other'),
-         
-         # lengthen the following to their full name :
-         colonoscopy_finding=str_replace(colonoscopy_finding,'UC','Ulcerative Colitis'),
-         colonoscopy_finding=str_replace(colonoscopy_finding,'CD',"Crohn's Disease"),
-         colonoscopy_finding=str_replace(colonoscopy_finding,'Histologically_Normal','Normal'),
-         colonoscopy_finding=str_replace(colonoscopy_finding,'FAP', 'Familial Adenomatous Polyposis'), 
-         colonoscopy_finding=str_replace(colonoscopy_finding,'IBD','Inflammatory Bowel Disease'))%>%
-  column_to_rownames(var='patient')%>%
-  arrange(age)%>%
-  mutate(across(!starts_with('age'), ~factor(.x)))
+## Cohort overview heatmap
 
-## create an annotation dataframe
+### Per-patient annotation table
+
+One row per patient, ordered by age, with diagnosis labels collapsed into the
+categories used in the figure legend.
+
+```{r heatmap-metadata}
+patient_heatmap_metadata <- crypt_metadata %>%
+  dplyr::select(
+    patient, age, sex, nationality,
+    colonoscopy_indication, colonoscopy_results, treatment
+  ) %>%
+  distinct(patient, .keep_all = TRUE) %>%
+  mutate(
+    colonoscopy_results = case_when(
+      str_detect(colonoscopy_results, "IBDUnclassified") ~ "IBD Unclassified",
+      colonoscopy_results %in% c(
+        "CD", "UC", "FAP", "Histologically_Normal",
+        "Lymphocytic gastritis", "Juvenile Polyp"
+      ) ~ colonoscopy_results,
+      # Aggregate threadworm and other infections for simplicity
+      colonoscopy_results %in% c("Threadworm", "Infection") ~ "Infection",
+      .default = "Other"
+    ),
+    # Expand abbreviations to their full names for the figure legend
+    colonoscopy_results = str_replace(colonoscopy_results, "UC", "Ulcerative Colitis"),
+    colonoscopy_results = str_replace(colonoscopy_results, "CD", "Crohn's Disease"),
+    colonoscopy_results = str_replace(colonoscopy_results, "Histologically_Normal", "Normal"),
+    colonoscopy_results = str_replace(colonoscopy_results, "FAP", "Familial Adenomatous Polyposis"),
+    colonoscopy_results = str_replace(colonoscopy_results, "IBD", "Inflammatory Bowel Disease"),
+    
+    colonoscopy_indication = case_when(colonoscopy_indication%in%c('Obstipation',"Irritable Bowel Syndrome","Functional abdominal pain","Unknown")~'Other',
+                                     colonoscopy_indication%in%c("New IBD Diagnosis","Follow Up IBD Diagnosis")~'Evaluation of Inflammatory Bowel Disease', 
+                                     colonoscopy_indication=='Ab Pain / Exclude IBD'~"Evaluation of Abdominal Pain",
+                                     colonoscopy_indication=='Painless PR Bleeding'~"Evaluation of Painless Per Rectum Bleeding",
+                                     
+                                     is.na(colonoscopy_indication)~'Other',
+                                     .default = colonoscopy_indication)
+  ) %>%
+  column_to_rownames(var = "patient") %>%
+  arrange(age) %>%
+  mutate(across(!starts_with("age"), ~ factor(.x)))
+```
+
+### Annotation object
+
+```{r heatmap-annotation}
+result_levels <- c(
+  "Normal",
+  "Infection",
+  "Juvenile Polyp",
+  "Lymphocytic gastritis",
+  "Familial Adenomatous Polyposis",
+  "Crohn's Disease",
+  "Inflammatory Bowel Disease Unclassified",
+  "Ulcerative Colitis",
+  "Other"
+)
+
+indication_levels=c(
+  "Evaluation of Painless Per Rectum Bleeding",
+  "Evaluation of Inflammatory Bowel Disease",
+  "Evaluation of Abdominal Pain",
+  "Lymphocytic gastritis",
+  "Juvenile Polyp",
+  "Infection",
+  "Other"
+  
+)
 age_col_fun <- colorRamp2(
   range(patient_heatmap_metadata$age, na.rm = TRUE),
   c("ivory2", "red4")
 )
-ha <- HeatmapAnnotation(
-  Age = patient_heatmap_metadata$age,
-  Sex = patient_heatmap_metadata$sex,
-  Nationality = patient_heatmap_metadata$nationality,
-  `Colonoscopy Indication` = patient_heatmap_metadata$colonoscopy_indication,
-  `Colonoscopy Results` = factor(patient_heatmap_metadata$colonoscopy_finding,
-                                 levels=c('Normal','Infection','Juvenile Polyp','Lymphocytic gastritis','Familial Adenomatous Polyposis',"Crohn's Disease",'Inflammatory Bowel Disease Unclassified','Ulcerative Colitis','Other')),
-  Treatment = patient_heatmap_metadata$treatment,
-  col = list(
-    Age=age_col_fun,
-   # `Age Range`=c('0-4yrs'='#0E6BA8','5-9yrs'='#ebd9aa','10-14yrs'='gold1','15-19yrs'='gold4'),
-    Sex = c('Male' = 'darkslateblue', 'Female' ="#f3b255ff" ,'NA' = "grey90"),
-    Nationality=c('UK'= "orchid4",'Danish'='palevioletred'),
-   `Colonoscopy Results` = c(
-    'Normal'                               = 'darkolivegreen4',
-    'Infection'                            = 'lightskyblue4',
-    'Familial Adenomatous Polyposis'       = 'firebrick4',
-    'Juvenile Polyp'                       = 'pink3',
-    'Lymphocytic gastritis'                = 'lightsalmon', 
-    'Inflammatory Bowel Disease Unclassified' = 'burlywood3',
-    "Crohn's Disease"                      = 'tan4',
-    'Ulcerative Colitis'                   = 'wheat2'
-  )),
-  annotation_name_side='left',  
-  annotation_name_gp = grid::gpar(fontface = "bold")
 
+ha <- HeatmapAnnotation(
+  Age                      = patient_heatmap_metadata$age,
+  Sex                      = patient_heatmap_metadata$sex,
+  Nationality              = patient_heatmap_metadata$nationality,
+  `Colonoscopy Indication` = factor(patient_heatmap_metadata$colonoscopy_indication, levels = indication_levels),
+  `Colonoscopy Results`    = factor(patient_heatmap_metadata$colonoscopy_results, levels = result_levels),
+  col = list(
+    Age         = age_col_fun,
+    Sex         = c("Male" = "darkslateblue", "Female" = "#f3b255ff", "NA" = "grey90"),
+    Nationality = c("UK" = "orchid4", "Denmark" = "palevioletred"),
+    
+   `Colonoscopy Indication` = c(
+    "Evaluation of Painless Per Rectum Bleeding" ='darkolivegreen4',
+    "Evaluation of Inflammatory Bowel Disease"     ='burlywood4',
+    "Evaluation of Abdominal Pain" = "plum4",
+    "Lymphocytic gastritis"='lightsalmon',
+    "Juvenile Polpy"  ='pink3',
+    "Infection"='lightskyblue4',
+    "Other"='grey90'),
+    
+    `Colonoscopy Results` = c(
+      "Normal"                                  = "darkolivegreen4",
+      "Infection"                               = "lightskyblue4",
+      "Familial Adenomatous Polyposis"          = "firebrick4",
+      "Juvenile Polyp"                          = "pink3",
+      "Lymphocytic gastritis"                   = "lightsalmon",
+      "Inflammatory Bowel Disease Unclassified" = "burlywood3",
+      "Crohn's Disease"                         = "tan4",
+      "Ulcerative Colitis"                      = "wheat2",
+      "Other"                                   = "grey90"
+    )
+  ),
+  annotation_name_side = "left",
+  annotation_name_gp   = grid::gpar(fontface = "bold")
 )
+```
+
+### Draw and export
+
+```{r heatmap-plot, fig.width = 12, fig.height = 4}
 n_patients <- nrow(patient_heatmap_metadata)
 
-## plot the heatmap :
-svg('~/childhood_colon_metadata.svg', width=12,height=4,bg='transparent')
-draw(
-  Heatmap(
-    matrix(1, nrow = 0, ncol = n_patients),
-    top_annotation = ha,
-    show_heatmap_legend = FALSE,
-  ),
-  annotation_legend_side = "bottom",  # or "left", "bottom", "top"
+cohort_heatmap <- Heatmap(
+  matrix(1, nrow = 0, ncol = n_patients),
+  top_annotation      = ha,
+  show_heatmap_legend = FALSE
 )
 
+draw(cohort_heatmap, annotation_legend_side = "bottom")
+```
+
+```{r heatmap-export, results = "hide"}
+dir.create("../Figures", showWarnings = FALSE, recursive = TRUE)
+
+svg("../Figures/childhood_colon_metadata.svg", width = 12, height = 4, bg = "transparent")
+draw(cohort_heatmap, annotation_legend_side = "bottom")
 dev.off()
+```
+
+## Session information
+
+```{r session-info}
+sessionInfo()
 ```

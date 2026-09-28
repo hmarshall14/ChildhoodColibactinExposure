@@ -1,0 +1,51 @@
+THIS FILE CONTAINS THE METADATA ABOUT SYSTEM AND RUNTIME
+
+
+-------System Info-------
+Operating System Name: Linux
+Nodename: farm22-head1
+Release: 5.15.0-187-generic
+Version: #197-Ubuntu SMP Fri Jul 17 19:17:01 UTC 2026
+
+-------Python and Package Versions------- 
+Python Version: 3.12.3
+SigProfilerPlotting Version: 1.4.3
+SigProfilerMatrixGenerator Version: 1.3.6
+SigProfilerAssignment Version: 1.1.5
+Pandas version: 3.0.5
+Numpy version: 2.5.2
+
+--------------EXECUTION PARAMETERS--------------
+INPUT DATA
+	input_type: matrix
+	output: msigHDP_patients/02_Output/Attribution_test/COSMIC_SBS89_excluded/
+	samples: msigHDP_patients/01_Input/sigpro_matrix.txt
+	cpu: -1
+	reference_genome: GRCh38
+	context_types: 96
+	exome: False
+COSMIC MATCH
+	cosmic_version: 3.6
+	nnls_add_penalty: 0.05
+	nnls_remove_penalty: 0.01
+	initial_remove_penalty: 0.05
+	de_novo_fit_penalty: 0.02
+	export_probabilities: True
+	collapse_to_SBS96: False
+	denovo_refit_option: False
+	decompose_fit_option: False
+	cosmic_fit_option: True
+
+-------Analysis Progress------- 
+[2026-09-26 15:09:01] Analysis started: 
+
+ Assigning COSMIC sigs or Signature Database ...... 
+ Finished Cosmic fitting! 
+Execution time:0:01:07.109396
+
+[2026-09-26 15:10:08] Analysis ended: 
+
+-------Job Status------- 
+Assignment of mutational signatures completed successfully! 
+Total execution time: 0:01:07 
+Results can be found in:  msigHDP_patients/02_Output/Attribution_test/COSMIC_SBS89_excluded/  folder

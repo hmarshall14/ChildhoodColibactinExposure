@@ -50,18 +50,18 @@ compute_branch_sens <- function(tree, tip_sens) {
 ```{r construct pileup of nodes for each crypt}
 ##
 tip_sens<-crypt_signature_attributions%>%
-  dplyr::select(crypt, sensitivitySBS)%>%
-  column_to_rownames(var='crypt')
+  dplyr::select(sample, sensitivitySBS)%>%
+  column_to_rownames(var='sample')
 
 # initiate a data frame for crypt pileup
-dir='../Phylogenetic_Trees/'
+dir='../snv_phylogenetic_trees/'
 patients=list.files(dir)
 crypt_pileup=NULL
 sens_edge_compiled=NULL
 
 for (patient in patients){
-  if (file.exists(paste0(dir,patient,"/Patient_snv_tree_with_branch_length.tree"))){
-  tree = read.tree(paste0(dir,patient,"/Patient_snv_tree_with_branch_length.tree"))
+  if (file.exists(paste0(dir,patient,"/",patient,".tree_with_branch_length.tree"))){
+  tree = read.tree(paste0(dir,patient,"/",patient,".tree_with_branch_length.tree"))
   
   # adjust branch lengths for sensitivity :
   sens_vec <- compute_branch_sens(tree, tip_sens)
@@ -204,283 +204,208 @@ background_mut_rates<-crypt_pileup_sig_annotated%>%
   dplyr::select(crypt,background_muts_rate_msa,age)
 ```
 
-### iii: Extract data for estimated beginnings of exposure
 ```{r}
-#### 1. extract the timepoints for latest possible commencement per crypt : ----
-# extract the timepoints for latest timepoint of commencement per crypt
-commencement_time_points_msa <- crypt_pileup_sig_annotated %>%
-  
-  # subset positive branches :
-  filter(SBS88_branch > 0) %>%
-  group_by(crypt)%>%
-  
-  # determine ealiest branch :
-  summarise(across(c(contains('background_muts_branch_end'),all_muts_count_branch_end_msa),~min(.x,na.rm=TRUE),.names='{.col}_min'))%>%
-  mutate(patient_id = str_extract(crypt, "PD\\d{5}")) %>%
-  
-  # joinst with mutation rtes.
-  left_join(background_mut_rates, by = "crypt") %>%
-  mutate(across(ends_with('_min'), ~.x/background_muts_rate_msa,.names = "age_{.col}"),
-         mutational_age_end_first_pos_branch = all_muts_count_branch_end_msa_min / background_muts_rate_msa) %>%
-  
-  # if a crypt does not bifurcate, it's the age_background_muts_branch_end_msa_min will equal age, these must be removed
-  filter(round(age, 3) != round(age_background_muts_branch_end_msa_min, 3)) %>%
-  
-  # select earliest timepoint for a given bifurcation:
-  group_by(background_muts_branch_end_msa_min) %>%
-  mutate(across(starts_with('age_'),~ min(.x, na.rm = TRUE)))%>%
-  ungroup()%>%
-  
-  # select columns to keep
-  dplyr::select(patient_id, crypt, contains('age_background_muts_branch_end'))
-
-colnames(commencement_time_points_msa)=str_replace(colnames(commencement_time_points_msa),'background_muts_branch_end','latest_crypt_commencement')
-
-#### 2. extract the timepoints for earliest timepoint of per individual :-------
-# extract the timepoints for earliest timepoint of per individual
-start_commencement_time_points_msa <- crypt_pileup_sig_annotated %>%
-  
-  # subset colibactin positive branches
-  filter(SBS88_branch > 0) %>%
-  group_by(crypt) %>%
-  # determine ealiest branch :
-  summarise(across(contains('background_muts_branch_start'),~min(.x,na.rm=TRUE),.names='{.col}_min'),.groups = "drop")%>%
-  
-  # determine age at branch points :
-  left_join(background_mut_rates, by = "crypt") %>%
-  mutate(across(contains('_min'),~.x / background_muts_rate_msa,.names='age_{.col}'))%>%
-  
-  # once again select branch point with earlier age :
-  group_by(background_muts_branch_start_msa_min) %>%
-  mutate(across(starts_with('age_'),~ min(.x, na.rm = TRUE)))%>%
-  ungroup()%>%
-  group_by(crypt)%>%
-  
-  # if there were no preceding mutations, we exclude these :
-  filter(age_background_muts_branch_start_msa_min > 0) %>%
-  summarise(across(contains('age_background_muts_branch_start'),~min(.x,na.rm=TRUE)),.groups = "drop")
-
-# rename column names
-colnames(start_commencement_time_points_msa)=str_replace(colnames(start_commencement_time_points_msa),'background_muts_branch_start','crypt_earliest_commencement')
-
-#### 3. extract the timepoints of known ongoing exposure :---------------------
-#Timepoints of ongoing exposure are identified by two sequential positive branches.
-## extract the timepoints for continuation of exposure
-known_pos_timepoints_msa<-crypt_pileup_sig_annotated %>%
-  
-  # subset positive branches :
-  filter(SBS88_branch > 0) %>%
-  
-  # identify instances where a second positive branch is observed
-  group_by(crypt) %>%
-  mutate(pos_branches=cumsum(SBS88_branch > 0))%>%
-  filter(pos_branches > 1) %>% # subset second positive branch only
-  
-  # determine age at commencement of a branch :
-  summarise(across(contains('background_muts_branch_start'), ~round(min(.x, na.rm = TRUE),digits=2)), .groups = "drop") %>%
-  mutate(patient_id = str_extract(crypt, "PD\\d{5}")) %>%
-  left_join(background_mut_rates, by = "crypt") %>%
-  mutate(across(contains('background_muts_branch_start'), ~.x/ background_muts_rate_msa,.names='age_{.col}')) %>%
-  dplyr::select(patient_id, crypt, contains('background_muts_branch_start'))%>%
-  
-  # finally determine earliest age for a time point :
-  group_by(background_muts_branch_start_msa)%>%
-  mutate(across(contains('age_background_muts_branch_start'),~min(.x,na.rm=TRUE)))%>%ungroup()%>%
-  dplyr::select(patient_id,crypt,contains('age'))
-
-# rename column names
-colnames(known_pos_timepoints_msa)=str_replace(colnames(known_pos_timepoints_msa),'background_muts_branch_start','known_pos_timepoint')
-
-#### 4. extract the timepoints of cessation of exposure per crypt :-------------
-## extract the timepoints of cessation of exposure per crypt :
-cessation_timepoints_msa <- crypt_pileup_sig_annotated %>%
-  
+crypt_pileup_classification<-crypt_pileup_sig_annotated %>%
+  left_join(unpruned_weights,by=c('branch_id'='Sample'))%>%
   # identify negative branches that follow positive branches
   group_by(crypt) %>%
-  filter((cumsum(SBS88_branch > 0) > 0) & # branches where there is at least a preceding positive branch
-           SBS88_branch == 0) %>% # select neg branches 
-  
-  # because it will return every colibactin neg branch, select the earliest age
-  summarise(across(contains('background_muts_branch_start'), ~min(.x, na.rm = TRUE)), .groups = "drop") %>%
-  mutate(patient_id = str_extract(crypt, "PD\\d{5}")) %>%
-  
-  # determine age at break point :
+  mutate(branch_status=case_when(branch.length <= 50 & x<50~'Truncal',
+                                 sum(SBS88_branch > 0) ==0~'Negative Crypt',
+                                 sum(SBS88_branch > 0) > 0 & cumsum(SBS88_branch>0)==0~'Pre exposure',
+                                 cumsum(SBS88_branch>0)==1 & SBS88_branch>0~'First positive branch',
+                                 cumsum(SBS88_branch>0)>1 & SBS88_branch>0~'Second positive branch',
+                                 cumsum(SBS88_branch>0)>0 & SBS88_branch==0 & SBS88_unpruned==0&branch.length>80~'Post cessation branch',
+                                 (cumsum(SBS88_branch>0)>0 & SBS88_branch==0) & (SBS88_unpruned>0 | branch.length<80)~'Post cessation branch - Indeterminant',
+                                 TRUE~'other')
+                                 
+                                 )%>%
   left_join(background_mut_rates, by = "crypt") %>%
-  mutate(across(contains('background_muts_branch_start'), ~.x/ background_muts_rate_msa,.names='age_{.col}')) %>%
-  group_by(background_muts_branch_start_msa)%>%
-  
-  # finally determine earliest age for a time point : 
-  mutate(across(contains('age_background_muts_branch_start'),~min(.x,na.rm=TRUE)))%>%
-  filter(!is.na(age_background_muts_branch_start_msa))%>%
+  #left_join(id_burdens, by ='branch_id',fill) %>%
+  mutate(
+    #id_burden=replace_na(id_burden,0),
+         across(contains('background_muts_branch'), ~.x/ background_muts_rate_msa,.names='age_{.col}'),
+         branch_duration=age_background_muts_branch_end_msa - age_background_muts_branch_start_msa,
+         #id_rate=id_burden/branch_duration
+         )
+```
+
+```{r}
+crypt_classification_long<-crypt_pileup_classification%>%
+  dplyr::select(patient,crypt,branch_id, branch_status,age_background_muts_branch_start_msa,age_background_muts_branch_end_msa,age)%>%
+  filter(branch_status%in%c('First positive branch','Second positive branch','Post cessation branch'))%>%
+  group_by(branch_id)%>%
+  mutate(age_background_muts_branch_start_msa=min(age_background_muts_branch_start_msa),
+         age_background_muts_branch_end_msa=min(age_background_muts_branch_end_msa))%>%
   ungroup()%>%
-  dplyr::select(patient_id,crypt, contains('age_')) 
+  pivot_longer(cols=contains('age'))%>%
+  mutate(timepoint=case_when(branch_status=='First positive branch'&name=='age_background_muts_branch_start_msa'~'age_earliest_commencement',
+                             branch_status=='First positive branch'&name=='age_background_muts_branch_end_msa'~'age_latest_commencement',
+                             branch_status=='Second positive branch'&name=='age_background_muts_branch_start_msa'~'age_continuation',
+                             branch_status=='Post cessation branch'&name=='age_background_muts_branch_start_msa'~'age_cessation',
+                             branch_status=='First positive branch'&name=='age'~'donor_age',
+                             .default='Other'
+                             ))%>%
+  filter(timepoint!='Other')%>%
+  dplyr::select(-branch_id)%>%
+  dplyr::select(patient,crypt,timepoint,value)%>%
+  group_by(crypt)%>%
+  filter(sum(timepoint=='age_cessation'|timepoint=='age_continuation')>0) # subset only those crypts with informative timepoints
 
-# rename column names
-colnames(cessation_timepoints_msa)=str_replace(colnames(cessation_timepoints_msa),'background_muts_branch_start','crypt_cessation')
-```
-### iv : Collate data for plotting swimmers plot
-```{r}
-## create dataframe of all timepoints :
-crypt_timepoints_df <- crypt_pileup_sig_annotated %>%
-  
-  # select relevant columnts
-  dplyr::select(patient, biopsy, crypt, patient_colibactin_pos,biopsy_colibactin_pos) %>%
-  
-  # subset positivie individuals
-  filter(patient_colibactin_pos==TRUE)%>%
-  filter(!duplicated(crypt))%>%
-  
-  # add the earliest possible commencement timepoints 
-  left_join(start_commencement_time_points_msa, by = c("crypt")) %>%
-  
-  # add the latest possible commencement timepoints 
-  left_join(commencement_time_points_msa, by = c("crypt", "patient" = "patient_id")) %>%
-  
-  # add the timepoints of known ongoing exposure
-  left_join(known_pos_timepoints_msa, by = c("crypt", "patient" = "patient_id")) %>%
-  
-  # add the timepoints of cessation 
-  left_join(cessation_timepoints_msa, by = c("crypt", "patient" = "patient_id")) %>%
-  
-  # combine with background mutation rates because this has the age parameter :
-  left_join(background_mut_rates, by = "crypt") %>%
-  mutate(across(contains('age_latest_crypt_commencement_msa'), ~ if_else(age_latest_crypt_commencement_msa_min == age, NA_real_, .x))) %>%
-  filter(!is.na(age_latest_crypt_commencement_msa_min))
-
-```
-
-Convert to long format :
-```{r}
-## convert to long format
-crypt_timepoints_long_df<-crypt_timepoints_df %>%
-  dplyr::select(patient,biopsy,age, crypt,starts_with('age_')) %>%
-  pivot_longer(cols=starts_with('age_'),
-               names_to = c('timepoint','ci'),
-               names_pattern = "age_(.*?)(?:_msa|_mmsig)?(?:_(lower_ci|upper_ci))?(?:_min)?$", 
-               values_to = "value") %>%
-  mutate(ci=ifelse(ci=="",'estimate',ci), ci = coalesce(ci, "estimate"), 
-         value=unlist(value)) %>%
-  pivot_wider(names_from = ci, values_from = value) %>%
-  mutate(upper_ci=ifelse(upper_ci>age,age,upper_ci))
-
-## compute patient ordering by median age
-patient_order <- crypt_timepoints_long_df %>%
+patient_order <- crypt_classification_long %>%
+  filter(timepoint=='donor_age')%>%
   group_by(patient) %>%
-  summarise(donor_age = median(age, na.rm = TRUE), .groups = "drop") %>%
-  arrange(donor_age)
+  summarise(donor_age = median(value, na.rm = TRUE), .groups = "drop") %>%
+  arrange(desc(donor_age))
 
-## reorder patients by age :
-crypt_timepoints_long_df <- crypt_timepoints_long_df %>%
-  mutate(patient_f = factor(patient, levels = patient_order$patient))
-crypt_timepoints_long_df<-crypt_timepoints_long_df%>%
-  mutate(location=case_when(timepoint=='crypt_earliest_commencement'~'Donor',
-                            str_detect(biopsy,'b')~'Right',
-                            str_detect(biopsy,'c')~'Left'))
+
+swimmers_crypt_order<-crypt_classification_long%>%
+  filter(!duplicated(crypt))%>%
+  mutate(patient_f = factor(patient, levels = patient_order$patient))%>%
+  arrange(patient_f, desc(age)) %>%
+  group_by(patient_f) %>%
+  mutate(ypos = seq(1.5, by = 0.5, length.out = n())) %>%
+  ungroup()%>%
+  dplyr::select(crypt,ypos)
+
+
+earliest_commencement<-crypt_classification_long%>%
+  filter(timepoint=='age_earliest_commencement')%>%
+  dplyr::select(crypt,value)
+colnames(earliest_commencement)<-c('crypt','age_earliest_commencement')
+
+swimmers_crypt_df <- crypt_classification_long %>%
+  left_join(patient_order)%>%
+  left_join(swimmers_crypt_order)%>%
+  left_join(earliest_commencement,by=c('crypt'))%>%
+  mutate(patient_f = factor(patient, levels = patient_order$patient))%>%
+  arrange(patient_f, desc(age))%>%
+  filter(!timepoint%in%c('donor_age','age_latest_commencement'))
+
+## create dataframe for the bar plot :
+crypt_bar_plot<-swimmers_crypt_df%>%
+  dplyr::select(patient,patient_f,crypt,donor_age,crypt,timepoint,value,starts_with('age_'),ypos)%>%
+  #filter(timepoint!=age_latest_commencement)%>%
+  #dplyr::select(-contains('latest_crypt_commencement'))%>%
+  #mutate(earliest_possible_commencement=age_crypt_earliest_commencement_msa_min)%>%
+  filter(!is.na(value))%>%
+  dplyr::select(patient,patient_f, crypt,donor_age, age_earliest_commencement,
+         timepoint,value,ypos)
+
 ```
+
+
 ## c : plot swimmers plot:
-### i : construct plot for cessation /continuation of exposure
 ```{r}
 ## create the swimmers plot for the timepoints of active and ceased exposure :
-png('~/active_cessation_exposure.png',width=2800,height=1600,res=300, bg='transparent')
+png('~/crypt_by_crypt_swimmers_plot.png',width=2800,height=1600,res=300, bg='transparent')
 
-# create plot
-ggplot(crypt_timepoints_long_df, aes(y = patient_f)) +
-  theme_bw() +
+ggplot(crypt_bar_plot, aes(y = ypos)) +
+  geom_segment(
+    aes(x = 0, xend = donor_age, yend = ypos),   color = "grey80",size=1.7) +
+  theme_classic()+
   
-  # state labels
-  labs(x = 'Estimated Chronological Age at Timepoint [years]', y = 'Study Participant', color = "Event", shape = "Event") +
+  ## plot bar for active period :
+  geom_segment(
+    aes(x = age_earliest_commencement, xend = value, yend = ypos),
+    col = 'maroon4',  alpha=1,size=1.7) +
   
-  # create a segment for each individual
-  geom_segment(data = distinct(crypt_timepoints_long_df, patient_f, age), aes(x = 0, xend = age, yend = patient_f), color = "grey80", size = 2)+
-  
-  # annotate the 95% confidence interval for break points 
-  geom_segment(data=crypt_timepoints_long_df[crypt_timepoints_long_df$timepoint %in% c('known_pos_timepoint','crypt_cessation'),], aes(x = lower_ci, y = patient_f, xend = upper_ci,linetype='95% Confidence Interval'),colour = "black",alpha=0.5)+ #adds the error bars 
-  
-  # annotate timepoints :
-  geom_point(data=crypt_timepoints_long_df[crypt_timepoints_long_df$timepoint %in% c('known_pos_timepoint','crypt_cessation'),],
-             aes(x = estimate, y = patient_f, colour='black',fill = timepoint,),  # use aes() inside geom_point
-             size = 3.5, colour='black', shape=23,alpha=0.9,stroke=1, na.rm = TRUE) +
+  ## plot bar for continuation befond point :
+  geom_segment(data=crypt_bar_plot[crypt_bar_plot$timepoint=='age_continuation',],
+    aes(x = value, xend = donor_age,  yend = ypos), col = 'maroon4', alpha=0.5,size=1.7) +
   
   
-  # format the diamonds for timepoints 
-  scale_fill_manual(breaks = c("known_pos_timepoint", "crypt_cessation"),
-                    values = c("known_pos_timepoint" = "green4","crypt_cessation" = "orange1"),
-                    labels = c("known_pos_timepoint" = "Timepoint of Active Exposure (Crypt)", "crypt_cessation" = "Latest Possible Cessation of Exposure (Crypt)")) +
-  
-  # format the x-axis :
-  scale_x_continuous(breaks = seq(0, 20, 5),minor_breaks = seq(0, 20, 1), expand = expansion(mult = c(0.01, 0.02)))+
-
-  theme(
-    axis.text = element_text(size = 9,face='bold',colour='black'),
-    legend.title = element_blank(),
-    axis.title.x = element_text(size = 12,face='bold'),
-    axis.title.y = element_blank(),
-    legend.position='none',
-    axis.ticks.y = element_blank(),
-    axis.ticks.length = unit(4, "pt"),
+scale_alpha_manual(
+  values = c(
+    "First positive branch" = 1,
+    "Subsequent positive branch" = 0.3
   )
+) +
+  
+  
+  ## add points for commmencement / cessation :
+  geom_point(data=crypt_bar_plot[crypt_bar_plot$timepoint%in%c('age_earliest_commencement','age_cessation','age_continuation'),],
+  aes(x = value,
+      y = ypos,
+      colour='black',fill = timepoint),
+      size = 3.5, colour='black', shape=23,alpha=0.9,stroke=0.5, na.rm = TRUE) +
+  
+  #facet_grid(pdid_f ~ ., scales = "free_y", space = "free_y")+
+  scale_fill_manual(breaks = c(
+    "age_continuation",
+    "age_cessation",
+    "age_earliest_commencement"
+  ),
+  values = c(
+    "age_continuation" = "green4",   
+    "age_cessation" = "orange1",
+    "age_earliest_commencement"='skyblue2'
+    
+  ),
+  labels = c(
+    "age_continuation" = "Known Timepoint of Ongoing Exposure",
+    "age_cessation" = "Latest Possible Cessation",
+    "age_earliest_commencement"="Earliest Possible Commencement")
+  ) +
+  
+  labs(y='Colonic Crypts Grouped by Donor', x='Window for exposure [years]')+
+  facet_grid(patient_f~.,scales='free',space='free_y')+
+  scale_x_continuous(breaks = seq(0, 20, 5),minor_breaks = seq(0, 20, 1), expand = expansion(mult = c(0.01, 0.02)))+
+  
+  coord_cartesian(clip = "off") +
+  theme(axis.text.y=element_blank(),
+        axis.ticks.y = element_blank(),
+        strip.background = element_blank(),
+        strip.text = element_blank(),
+        legend.position='bottom',
+        legend.title = element_blank()
+        )
 
 dev.off()
-```
 
-### ii : construct plot for timepoints of commencemnt of exposure
-```{r}
-## create the swimmers plot for the timepoints of earliest and latest possible commencement of exposure :
-png('~/commencement_exposure.png',,width=2800,height=1600,res=300, bg='transparent')
+legend_df <- data.frame(
+  x = 1,
+  y = c(2, 1),
+  branch = c("First positive branch",
+             "Subsequent positive branch"),
+  alpha = c(1, 0.3)
+)
 
-# initialise the plot
-ggplot(crypt_timepoints_long_df, aes(y = patient_f)) +
-  theme_bw() +
-  
-  # state legend labels :
-  labs(x = 'Estimated Chronological Age at Timepoint [years]', y = 'Study Participant', color = "Event", shape = "Event") +
-  
-  # create a segment for each individual
-  geom_segment(data = distinct(crypt_timepoints_long_df, patient_f, age), aes(x = 0, xend = age, yend = patient_f), color = "grey80", size = 2)+
-  
-  # annotate the 95% confidence interval for break points 
-  geom_segment(data=crypt_timepoints_long_df[crypt_timepoints_long_df$timepoint %in% c('crypt_earliest_commencement','latest_crypt_commencement'),], aes(x = lower_ci, y = patient_f, xend = upper_ci,linetype='95% Confidence Interval'),colour = "black",alpha=0.5)+ 
-  
-  # annotate timepoints :
-  geom_point(data=crypt_timepoints_long_df[crypt_timepoints_long_df$timepoint %in% c('crypt_earliest_commencement','latest_crypt_commencement'),],
-               aes(x = estimate, y = patient_f, colour='black',fill = timepoint),  # use aes() inside geom_point
-  size = 3.5, colour='black',shape=23, stroke=1,alpha=0.9, na.rm = TRUE) +
-  
-  # format the diamonds
-  scale_fill_manual(breaks = c("crypt_earliest_commencement", "latest_crypt_commencement"),
-                    values = c("crypt_earliest_commencement" = "skyblue2", "latest_crypt_commencement" = "maroon1"),
-                    labels = c("crypt_earliest_commencement" = "Earliest Possible Commencement of Exposure\n (Crypt)", "latest_crypt_commencement" = "Latest Possible Commencement of Exposure\n (Crypt)")) +
-  # format the x-axis :
-  scale_x_continuous(breaks = seq(0, 20, 5),minor_breaks = seq(0, 20, 1), expand = expansion(mult = c(0.01, 0.02)))+
-
-  guides(fill=guide_legend(order=1), linetype=guide_legend(order=2))+
-  
-  
+ggplot(legend_df) +
+  geom_segment(
+    aes(
+      x = 0,
+      xend = 1,
+      y = y,
+      yend = y,
+      alpha = branch
+    ),
+    colour = "maroon4",
+    linewidth = 2
+  ) +
+  scale_alpha_manual(
+    values = c(
+      "First positive branch" = 1,
+      "Subsequent positive branch" = 0.3
+    )
+  ) +
+  theme_void() +
   theme(
-    axis.text = element_text(size = 9,face='bold',colour='black'),
-    legend.title = element_blank(),
-    axis.title.x = element_text(size = 12,face='bold'),
-    axis.title.y = element_blank(),
-    axis.ticks.y = element_blank(),
-    legend.position = "none",
-    axis.ticks.length = unit(4, "pt"),
+    legend.text=element_text(size=9)
   )
 dev.off()
-```
 
 ### iii : create a plot for the legend :
 ```{r}
 ## create dataframe for plotting
 legend_df<-data.frame(
-  colour=c('skyblue2','maroon1',"green4",'orange1','grey80',NA),
+  colour=c('skyblue2',"green4",'orange1','grey80',NA),
   timepoint=c('Earliest Possible Commencement of Exposure', 
-              'Latest Possible Commencement of Exposure',
              'Timepoint of Ongoing Exposure',
              'Latest Possible Cessation of Exposure',
              'Lifespan of Individual',
              '95% Confidence Interval for Timepoint'),
-  shape=c(23,23,23,23,22,NA),
-  lty=c(NA,NA,NA,NA,NA,1)
+  shape=c(23,23,23,22,NA),
+  lty=c(NA,NA,NA,NA,1)
 )
 
 ## create plot
@@ -503,62 +428,71 @@ dev.off()
 ## c : calculate summary statistics:
 ```{r}
 ## number of individuals with informative time points :
-length(unique(crypt_timepoints_long_df$patient)) # n = 23
+length(unique(crypt_bar_plot$patient)) # n = 32
 ```
 
 determine patient level summaries for commencement of exposure :
 ```{r}
 ## summary for timings of exposure :
-crypt_timepoints_long_df%>%
-  group_by(patient,timepoint)%>%
-  filter(timepoint %in% c('crypt_earliest_commencement','latest_crypt_commencement'))%>%
-  filter(estimate==min(estimate))%>%
+crypt_bar_plot%>%
+  group_by(patient)%>%
+  filter(timepoint %in% c('age_cessation','age_continuation'))%>% # we derive the latest commencement from end of first branch
+  filter(value==min(value))%>% # filter per patient for the first of these
   ungroup()%>%
-  dplyr::select(patient,timepoint,estimate)%>%
-  group_by(timepoint)%>%
-  summarise(median=round(median(estimate,na.rm=T),digits=1),
-            lwr=round(quantile(estimate,0.25,na.rm=T),digits=1),
-            upr=round(quantile(estimate,0.75,na.rm=T),digits=1),
-            min=round(min(estimate,0.75,na.rm=T),digits=1))
+  dplyr::select(patient,age_earliest_commencement,value)%>%
+  rename(latest_possible_commencement=value)%>%
+  pivot_longer(cols=contains('commencement'))%>%
+  group_by(name)%>%
+  summarise(median=round(median(value,na.rm=T),digits=1),
+            lwr=round(quantile(value,0.25,na.rm=T),digits=1),
+            upr=round(quantile(value,0.75,na.rm=T),digits=1),
+            min=round(min(value,0.75,na.rm=T),digits=1))
 ```
 
 determine patient level summaries for commencement of exposure :
 ```{r}
 ## crypt level summaries
-crypt_timepoints_long_df%>%
+crypt_bar_plot%>%
   ungroup()%>%
-  filter(!timepoint %in% c('crypt_earliest_commencement','latest_crypt_commencement'))%>%
-  dplyr::select(patient,timepoint,estimate)%>%
+  filter(timepoint %in% c('age_cessation','age_continuation'))%>%
+  dplyr::select(patient,timepoint,value)%>%
   group_by(timepoint)%>%
-  summarise(median=round(median(estimate,na.rm=T),digits=1),
-            lwr=round(quantile(estimate,0.25,na.rm=T),digits=1),
-            upr=round(quantile(estimate,0.75,na.rm=T),digits=1),
-            min=round(min(estimate,0.75,na.rm=T),digits=1))
+  summarise(median=round(median(value,na.rm=T),digits=1),
+            lwr=round(quantile(value,0.25,na.rm=T),digits=1),
+            upr=round(quantile(value,0.75,na.rm=T),digits=1),
+            min=round(min(value,0.75,na.rm=T),digits=1))
 ```
 
 identify earliest metric for earliest possible commencement 
 ```{r}
 # identify earliest case :
-crypt_timepoints_long_df%>%filter(timepoint=='crypt_earliest_commencement')%>%
-  filter(estimate==min(estimate,na.rm=T))
+crypt_bar_plot%>%
+  ungroup()%>%
+  filter(age_earliest_commencement>0&timepoint=='age_earliest_commencement')%>%
+  filter(value==min(value,na.rm=T))
 ```
 
 identify earliest metric for latest possible commencement :
 ```{r}
-crypt_timepoints_long_df%>%filter(timepoint=='latest_crypt_commencement')%>%
-  filter(estimate==min(estimate))
+crypt_bar_plot%>%
+  ungroup()%>%
+  filter(timepoint%in% c('age_continuation','age_cessation'))%>%
+  filter(value==min(value))
 ```
 
 identify earliest instance of cessation in a crypt :
 ```{r}
-crypt_timepoints_long_df%>%filter(timepoint=='crypt_cessation')%>%
-  filter(estimate==min(estimate,na.rm=T))
+crypt_bar_plot%>%
+  filter(name=='age_crypt_cessation_msa')%>%
+  filter(value==min(value,na.rm=T))
 ```
 
 identify latest instance of continuation in a crypt :
 ```{r}
-crypt_timepoints_long_df%>%filter(timepoint=='known_pos_timepoint')%>%
-  filter(estimate==max(estimate,na.rm=T))
+crypt_bar_plot%>%
+  ungroup()%>%
+  filter(timepoint=='age_continuation')%>%
+  filter(value==max(value,na.rm=T))
 ```
 
 for age ranges, stipulate the ratio of continuation to cessation :
@@ -566,9 +500,9 @@ for age ranges, stipulate the ratio of continuation to cessation :
 ages<-c(0,2,5,10,15)
 for (i in 2:length(ages)){
   
-  time_sum<-crypt_timepoints_long_df%>%
-    filter(estimate> ages[i-1] &estimate < ages[i] & timepoint %in% c('known_pos_timepoint','crypt_cessation'))%>%
-    filter(!duplicated(paste0(biopsy,estimate)))%>%
+  time_sum<-crypt_bar_plot%>%
+    filter(value> ages[i-1] &value < ages[i] & timepoint %in% c('age_continuation','age_cessation'))%>%
+    filter(!duplicated(paste0(patient,value)))%>%
     group_by(timepoint)%>%
     summarise(n=n())%>%ungroup()%>%
     mutate(prop=n/sum(n),ratio= prop/(1-prop))

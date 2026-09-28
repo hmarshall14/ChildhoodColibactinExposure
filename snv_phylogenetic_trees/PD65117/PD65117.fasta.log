@@ -1,0 +1,104 @@
+MPBoot version 1.1.0 for Linux 64-bit built Mar 23 2018
+Copyright (c) 2016 Diep Thi Hoang, Le Sy Vinh, Tomas Flouri, Alexandros Stamatakis, Arndt von Haeseler and Bui Quang Minh.
+
+Host:    node-14-12 (AVX2, FMA3, 2163 GB RAM)
+Command: mpboot -s PD65117.fasta -bb 1000 -cost e -st DNA
+Seed:    982775 (Using SPRNG - Scalable Parallel Random Number Generator)
+Time:    Thu Sep 17 12:43:16 2026
+Kernel:  AVX
+
+Reading alignment file PD65117.fasta ... Fasta format detected
+Alignment most likely contains DNA/RNA sequences
+Alignment has 18 sequences with 12553 columns and 805 patterns
+ID   Sequence         #Gap/Ambiguity
+1    Ancestral        0    (0.000%)	4
+2    PD65117c_lo0006  178  (1.418%)	4
+3    PD65117c_lo0004  101  (0.805%)	4
+4    PD65117c_lo0008  381  (3.035%)	4
+5    PD65117b_lo0010  265  (2.111%)	4
+6    PD65117c_lo0005  461  (3.672%)	4
+7    PD65117c_lo0007  264  (2.103%)	4
+8    PD65117b_lo0013  124  (0.988%)	4
+9    PD65117c_lo0002  253  (2.015%)	4
+10   PD65117b_lo0014  282  (2.246%)	4
+11   PD65117c_lo0001  293  (2.334%)	4
+12   PD65117c_lo0003  390  (3.107%)	4
+13   PD65117b_lo0004  235  (1.872%)	4
+14   PD65117b_lo0005  149  (1.187%)	4
+15   PD65117b_lo0012  270  (2.151%)	4
+16   PD65117b_lo0011  410  (3.266%)	4
+17   PD65117b_lo0008  229  (1.824%)	4
+18   PD65117b_lo0003  373  (2.971%)	4
+**** TOTAL            4658 (2.061%)
+Cost matrix satisfies triangular inenquality
+Time for parsimony tree construction: 0.016 seconds
+Parsimony score: 8907
+Reordering patterns in alignment by decreasing order of pattern parsimony... 0.001 seconds
+
+Create initial parsimony tree by phylogenetic likelihood library (PLL)... 0.007 seconds
+Generating 1000 samples for bootstrap approximation...
+
+NOTE: 2.360 MB RAM is required!
+Current best tree score: 8906
+
+Generating 99 parsimony trees... (36 duplicated parsimony trees)
+CPU time: 1
+Finish initializing candidate tree set. Number of distinct locally optimal trees: 64
+Current best score: 8906 / CPU time: 1
+
+Time: 0h:0m:0s
+NOTE: REPS computation is segmented into 3 parts for speed...
+segment#1 ends at 48
+segment#2 ends at 288
+segment#3 ends at 631
+0 seconds.
+RATCHET Iteration 10 / Score: 8906 / Time: 0h:0m:1s
+RATCHET Iteration 20 / Score: 8906 / Time: 0h:0m:1s (0h:0m:7s left)
+RATCHET Iteration 30 / Score: 8906 / Time: 0h:0m:1s (0h:0m:4s left)
+RATCHET Iteration 40 / Score: 8906 / Time: 0h:0m:2s (0h:0m:3s left)
+RATCHET Iteration 50 / Score: 8906 / Time: 0h:0m:2s (0h:0m:2s left)
+RATCHET Iteration 60 / Score: 8906 / Time: 0h:0m:2s (0h:0m:1s left)
+RATCHET Iteration 70 / Score: 8906 / Time: 0h:0m:3s (0h:0m:1s left)
+RATCHET Iteration 80 / Score: 8906 / Time: 0h:0m:3s (0h:0m:0s left)
+RATCHET Iteration 90 / Score: 8906 / Time: 0h:0m:3s (0h:0m:0s left)
+RATCHET Iteration 100 / Score: 8906 / Time: 0h:0m:3s (0h:0m:0s left)
+Optimizing bootstrap trees ...
+100 replicates done
+200 replicates done
+300 replicates done
+400 replicates done
+500 replicates done
+600 replicates done
+700 replicates done
+800 replicates done
+900 replicates done
+1000 replicates done
+CPU Time used:  20 sec.
+NOTE: At the end, 9648 bootstrap candidate trees evaluated.
+Scores of best 5 trees: 
+8906 8906 8906 8906 8906 
+BEST SCORE FOUND : 8906
+Creating bootstrap support values...
+Split supports printed to NEXUS file PD65117.fasta.splits.nex
+
+CPU time used for tree search: 23.697 sec (0h:0m:23s)
+Wall-clock time used for tree search: 24.647 sec (0h:0m:24s)
+Total CPU time used: 23.925 sec (0h:0m:23s)
+Total wall-clock time used: 24.926 sec (0h:0m:24s)
+
+Computing bootstrap consensus tree...
+Reading input file PD65117.fasta.splits.nex...
+18 taxa and 55 splits.
+Consensus tree written to PD65117.fasta.contree
+Parsimony score of consensus tree: 8906
+
+Analysis results written to: 
+  MPBoot report:                 PD65117.fasta.mpboot
+  Maximum-parsimony  tree:       PD65117.fasta.treefile
+
+Maximum parsimony bootstrap approximation results written to:
+  Split support values:          PD65117.fasta.splits.nex
+  Consensus tree:                PD65117.fasta.contree
+  Screen log file:               PD65117.fasta.log
+
+Date and Time: Thu Sep 17 12:43:41 2026

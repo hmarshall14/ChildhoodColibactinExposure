@@ -1,0 +1,107 @@
+MPBoot version 1.1.0 for Linux 64-bit built Mar 23 2018
+Copyright (c) 2016 Diep Thi Hoang, Le Sy Vinh, Tomas Flouri, Alexandros Stamatakis, Arndt von Haeseler and Bui Quang Minh.
+
+Host:    node-14-26 (AVX2, FMA3, 2150 GB RAM)
+Command: mpboot -s PD65118.fasta -bb 1000 -cost e -st DNA
+Seed:    160026 (Using SPRNG - Scalable Parallel Random Number Generator)
+Time:    Thu Sep 17 12:43:25 2026
+Kernel:  AVX
+
+Reading alignment file PD65118.fasta ... Fasta format detected
+Alignment most likely contains DNA/RNA sequences
+Alignment has 19 sequences with 23532 columns and 1015 patterns
+ID   Sequence         #Gap/Ambiguity
+1    Ancestral        0    (0.000%)	4
+2    PD65118b_lo0004  200  (0.850%)	4
+3    PD65118b_lo0003  261  (1.109%)	4
+4    PD65118c_lo0005  768  (3.264%)	4
+5    PD65118c_lo0007  194  (0.824%)	4
+6    PD65118c_lo0002  275  (1.169%)	4
+7    PD65118c_lo0003  143  (0.608%)	4
+8    PD65118c_lo0009  194  (0.824%)	4
+9    PD65118c_lo0004  365  (1.551%)	4
+10   PD65118c_lo0012  1122 (4.768%)	4
+11   PD65118c_lo0019  208  (0.884%)	4
+12   PD65118c_lo0024  167  (0.710%)	4
+13   PD65118c_lo0025  482  (2.048%)	4
+14   PD65118c_lo0015  688  (2.924%)	4
+15   PD65118c_lo0013  442  (1.878%)	4
+16   PD65118c_lo0016  393  (1.670%)	4
+17   PD65118c_lo0018  416  (1.768%)	4
+18   PD65118c_lo0017  420  (1.785%)	4
+19   PD65118c_lo0020  548  (2.329%)	4
+**** TOTAL            7286 (1.630%)
+Cost matrix satisfies triangular inenquality
+Time for parsimony tree construction: 0.021 seconds
+Parsimony score: 20138
+Reordering patterns in alignment by decreasing order of pattern parsimony... 0.002 seconds
+
+Create initial parsimony tree by phylogenetic likelihood library (PLL)... 0.014 seconds
+Generating 1000 samples for bootstrap approximation...
+
+NOTE: 3.148 MB RAM is required!
+Current best tree score: 20138
+
+Generating 99 parsimony trees... (61 duplicated parsimony trees)
+CPU time: 1
+Finish initializing candidate tree set. Number of distinct locally optimal trees: 39
+Current best score: 20138 / CPU time: 1
+
+Time: 0h:0m:1s
+NOTE: REPS computation is segmented into 5 parts for speed...
+segment#1 ends at 16
+segment#2 ends at 48
+segment#3 ends at 96
+segment#4 ends at 224
+segment#5 ends at 738
+0 seconds.
+RATCHET Iteration 10 / Score: 20138 / Time: 0h:0m:2s
+RATCHET Iteration 20 / Score: 20138 / Time: 0h:0m:2s (0h:0m:10s left)
+RATCHET Iteration 30 / Score: 20138 / Time: 0h:0m:2s (0h:0m:7s left)
+RATCHET Iteration 40 / Score: 20138 / Time: 0h:0m:3s (0h:0m:4s left)
+RATCHET Iteration 50 / Score: 20138 / Time: 0h:0m:3s (0h:0m:3s left)
+RATCHET Iteration 60 / Score: 20138 / Time: 0h:0m:3s (0h:0m:2s left)
+RATCHET Iteration 70 / Score: 20138 / Time: 0h:0m:4s (0h:0m:1s left)
+RATCHET Iteration 80 / Score: 20138 / Time: 0h:0m:4s (0h:0m:1s left)
+RATCHET Iteration 90 / Score: 20138 / Time: 0h:0m:4s (0h:0m:0s left)
+RATCHET Iteration 100 / Score: 20138 / Time: 0h:0m:5s (0h:0m:0s left)
+Optimizing bootstrap trees ...
+100 replicates done
+200 replicates done
+300 replicates done
+400 replicates done
+500 replicates done
+600 replicates done
+700 replicates done
+800 replicates done
+900 replicates done
+1000 replicates done
+CPU Time used:  37 sec.
+NOTE: At the end, 8784 bootstrap candidate trees evaluated.
+Scores of best 5 trees: 
+20138 20138 20138 20138 20138 
+BEST SCORE FOUND : 20138
+Creating bootstrap support values...
+Split supports printed to NEXUS file PD65118.fasta.splits.nex
+
+CPU time used for tree search: 41.096 sec (0h:0m:41s)
+Wall-clock time used for tree search: 44.195 sec (0h:0m:44s)
+Total CPU time used: 41.523 sec (0h:0m:41s)
+Total wall-clock time used: 44.632 sec (0h:0m:44s)
+
+Computing bootstrap consensus tree...
+Reading input file PD65118.fasta.splits.nex...
+19 taxa and 63 splits.
+Consensus tree written to PD65118.fasta.contree
+Parsimony score of consensus tree: 20138
+
+Analysis results written to: 
+  MPBoot report:                 PD65118.fasta.mpboot
+  Maximum-parsimony  tree:       PD65118.fasta.treefile
+
+Maximum parsimony bootstrap approximation results written to:
+  Split support values:          PD65118.fasta.splits.nex
+  Consensus tree:                PD65118.fasta.contree
+  Screen log file:               PD65118.fasta.log
+
+Date and Time: Thu Sep 17 12:44:09 2026

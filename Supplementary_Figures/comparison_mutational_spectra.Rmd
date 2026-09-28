@@ -1,0 +1,596 @@
+---
+title: "Mutational Spectra Comparisons Between Phylogenetic Branches"
+output:
+  github_document:
+    toc: true
+    toc_depth: 3
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  comment = "#>"
+)
+```
+
+Principal component analysis of SBS96 mutational spectra at the level of
+phylogenetic branches, followed by unsupervised clustering in PC space, to test
+whether branches separate by colibactin (SBS88) status without being told the
+labels.
+
+## Setup
+
+### Libraries
+
+```{r libraries}
+library(tidyverse)
+library(cowplot)
+library(mclust)    # adjustedRandIndex
+```
+
+### Input data
+
+```{r load-data}
+# SigProfilerMatrixGenerator output:
+#   <project>/01_Input/output/SBS/paediatric_branches_both.SBS96.all
+contexts <- read.table("../Signatures/paediatric_sbs_branches.SBS96.all",
+                       header = TRUE, row.names = 1)
+
+crypt_pileup_classification <- read.csv("../Data/crypt_pileup_classification.csv")
+```
+
+### Branch annotation
+
+```{r branch-labels}
+branch_labels <- crypt_pileup_classification %>%
+  ungroup() %>%
+  dplyr::select(branch_id, branch_status) %>%
+  distinct()
+
+branches_class <- branch_labels %>%
+  transmute(
+    Sample = branch_id,
+    class  = branch_status,
+    
+    colibactin_positive = if_else(
+      str_detect(class, "positive"),
+      "SBS88 Positive Branch",
+      "SBS88 Negative Branch"
+    )
+  )
+```
+
+### Prepare the context matrix
+
+Truncal branches are excluded: they aggregate mutations from before the
+phylogeny resolves and so are not comparable to terminal branches.
+
+```{r context-matrix}
+truncal_samples <- branches_class$Sample[branches_class$class == "Truncal"]
+
+contexts_no_trunks <- contexts %>%
+  dplyr::select(!any_of(truncal_samples)) %>%
+  dplyr::select(where(~ sum(.x) > 0))
+
+# Convert counts to relative contribution (each sample sums to 1)
+contexts_relative <- prop.table(as.matrix(contexts_no_trunks), margin = 2)
+
+# Sanity check
+head(colSums(contexts_relative))
+```
+
+```{r transpose-matrix}
+# Samples as rows, 96 channels as columns
+contexts_relative <- as.data.frame(t(contexts_relative))
+```
+
+## PCA
+
+`scale = TRUE` standardises each of the 96 channels to unit variance, which
+gives rare channels equal weight to common ones.
+
+```{r pca}
+pca_fit <- prcomp(contexts_relative, scale = TRUE)
+
+pct_var <- round(100 * pca_fit$sdev^2 / sum(pca_fit$sdev^2), 1)
+head(pct_var)
+```
+
+### Unsupervised clustering in PC space
+
+Ward linkage on Euclidean distance over the first five PCs, cut into two
+groups.
+
+```{r clustering}
+n_pcs   <- 2
+n_clust <- 2
+
+hc_pca   <- hclust(dist(pca_fit$x[, seq_len(n_pcs)]), method = "ward.D2")
+clusters <- cutree(hc_pca, k = n_clust)
+
+cluster_df <- tibble(
+  Sample  = names(clusters),
+  cluster = paste0("Cluster_", clusters)
+)
+```
+
+### Assemble the plotting dataframe
+
+```{r pca-df}
+pca_df <- as.data.frame(pca_fit$x) %>%
+  rownames_to_column("Sample") %>%
+  inner_join(branches_class, by = "Sample") %>%
+  left_join(cluster_df, by = "Sample")
+```
+
+## Plots
+
+### Palettes and shared theme
+
+```{r palettes}
+branch_levels <- c(
+  "First positive branch", "Second positive branch", "Post cessation branch",
+  "Negative Crypt",  "Pre exposure"
+)
+
+branch_col <- c(
+  "First positive branch"  = "maroon4",
+  "Second positive branch" = "maroon4",
+  "Post cessation branch"  = "black",
+  "Negative Crypt"         = "grey80",
+  "Pre exposure"           = "grey80"
+)
+
+branch_alpha <- c(
+  "First positive branch"  = 0.2,
+  "Second positive branch" = 0.2,
+  "Post cessation branch"  = 1,
+  "Negative Crypt"         = 0.2,
+  "Pre exposure"           = 0.2
+)
+
+# NOTE: `cutree` numbers clusters arbitrarily, so which cluster is the
+# SBS88-enriched one is not guaranteed between runs or data versions.
+# Check `cluster_counts` below before trusting the colour assignment.
+cluster_col <- c(
+  "Cluster_1" = "maroon4",
+  "Cluster_2" = "grey80"
+)
+
+pca_theme <- theme_classic(base_size = 11) +
+  theme(
+    legend.position = "bottom",
+    legend.title    = element_text(size = 14, face = "bold"),
+    legend.text     = element_text(size = 12),
+    axis.title      = element_text(size = 14, face = "bold"),
+    axis.text       = element_text(size = 12)
+  )
+
+pc_labs <- labs(
+  x = paste0("PC1 (", pct_var[1], "%)"),
+  y = paste0("PC2 (", pct_var[2], "%)")
+)
+```
+
+### PC1 vs PC2, coloured by branch status
+
+```{r pca-plot-branch, fig.width = 12, fig.height = 6}
+pca_plot <- ggplot(pca_df, aes(x = PC1, y = PC2, colour = class, alpha = class)) +
+  geom_point() +
+  scale_colour_manual(values = branch_col, breaks = branch_levels) +
+  scale_alpha_manual(values = branch_alpha, breaks = branch_levels) +
+  guides(alpha = "none") +
+  pc_labs +
+  labs(colour = "Branch status") +
+  pca_theme
+
+pca_plot
+```
+
+### PC1 vs PC2, coloured by unsupervised cluster
+
+```{r pca-plot-cluster, fig.width = 12, fig.height = 6}
+cluster_pca_plot <- ggplot(pca_df, aes(x = PC1, y = PC2, colour = cluster)) +
+  geom_point() +
+  scale_colour_manual(values = cluster_col, breaks = names(cluster_col)) +
+  pc_labs +
+  labs(colour = "Cluster annotation") +
+  pca_theme
+
+cluster_pca_plot
+```
+
+### Export the combined figure
+
+```{r export-figure, results = "hide"}
+dir.create("../Supplementary_Figures/", showWarnings = FALSE, recursive = TRUE)
+
+combined_plot <- plot_grid(
+  pca_plot, cluster_pca_plot,
+  nrow = 2, rel_heights = c(1, 1)
+)
+
+ggsave("../Supplementary_Figures//PCA_Branch_Annotation.png", combined_plot, height = 12, width = 12)
+```
+
+## Agreement between clusters and SBS88 status
+
+### Cluster membership
+
+```{r cluster-counts}
+cluster_counts <- pca_df %>%
+  dplyr::count(class, cluster) %>%
+  pivot_wider(names_from = cluster, values_from = n, values_fill = 0) %>%
+  column_to_rownames("class")
+
+cluster_counts
+```
+
+Row percentages:
+
+```{r cluster-percentages}
+cluster_percentages <- round(100 * proportions(as.matrix(cluster_counts), margin = 1), 1)
+cluster_percentages
+```
+
+### Adjusted Rand index
+
+```{r adjusted-rand}
+adjusted_rand_index <- adjustedRandIndex(pca_df$colibactin_positive, pca_df$cluster)
+
+cat(sprintf("Adjusted Rand index: %.3f\n", adjusted_rand_index))
+```
+
+### Chi-squared test
+
+```{r chi-squared}
+sbs88_by_cluster <- table(pca_df$colibactin_positive, pca_df$cluster)
+sbs88_by_cluster
+
+chisq.test(sbs88_by_cluster)
+```
+```{r}
+#Annotate branches type
+ref_profile='First positive branch'
+classes=unique(branches_class$class)
+classes=c('First positive branch','Second positive branch','Post cessation branch','Negative Crypt')
+classes=classes[!classes==ref_profile]
+
+plotting_data <- array(data = 0, dim = c(96, length(classes)))
+colnames(plotting_data) <- classes
+plotting_data <- as.data.frame(plotting_data)
+
+
+## Normalise data:
+Data_Relative <- scale(contexts, center = FALSE, scale = colSums(contexts))
+head(colSums(Data_Relative))
+Data_Relative <- as.data.frame(t(Data_Relative))
+Data_Relative <- tibble::rownames_to_column(Data_Relative,"Sample")
+Data_Relative <- left_join(Data_Relative, Branches_class, by='Sample')
+T_test_df     <- Data_Relative
+
+#Calculate Averages
+Branch_Average <- Data_Relative %>% group_by(class) %>% summarise_if(is.numeric, mean)
+row.names(Branch_Average) = NULL
+Branch_Average <- tibble::column_to_rownames(Branch_Average,"class")
+Branch_Average <- as.data.frame(t(Branch_Average))
+Branch_Average <- tibble::rownames_to_column(Branch_Average, var = "MutationType")
+  
+#Correct Order
+Branch_Average$Ref <- substr(Branch_Average$MutationType, 3, 3)
+Branch_Average$Mut <- substr(Branch_Average$MutationType, 5, 5)
+Branch_Average <- Branch_Average[order(Branch_Average$Ref, Branch_Average$Mut),]
+Branch_Average <- subset(Branch_Average, select = -c(Ref, Mut))
+
+#Prepare to Plot
+signature_data  <- Branch_Average[,sapply(Branch_Average, is.numeric)]
+rownames(signature_data) <- NULL
+signature_data <- signature_data*100
+
+## generate relatives to Negatve Crypt:
+for (i in 1:length(classes)){
+  sig_data <- signature_data[ , c(classes[i], ref_profile)]
+  
+    
+  #Choose columns to plot from signature_data
+  #######edit######
+  w <- 1
+  z <- 2
+    
+  #Calculate differences
+  a = sig_data[w]
+  b = sig_data[z]
+  difference_data <- tibble(a-b, .name_repair = "minimal")
+  #colnames(difference_data) <- c("Difference")
+    
+  plotting_data[, c(classes[i])] <- difference_data
+}
+  
+
+# Define Plot Function
+outdir='../Supplementary_Figures/'
+plot_standard_SNV_signatures = function(title, signatures_data, outdir,ref_profile,fixed_axis=FALSE, combined =FALSE){
+  # title is the name of the data to be plotted e.g. PCAWG_Reference_SNV
+  # signatures_data is the vector containing the signature data, ensure that this is in the standard order (see PCAWG reference signatures)
+  # Ensure column names contain the desired signature title
+  # plot_single argument determines if single files or combined file is ouput, by default a combined file is generated
+  #fixed_axis argument determines whether plot is with fixed (5% scale) or variable axis. 
+  
+  # Specify Context Type
+  sig_cat = c("C>A","C>G","C>T","T>A","T>C","T>G")
+  ctx_vec = paste(rep(c("A","C","G","T"),each=4),rep(c("A","C","G","T"),times=4),sep="-")
+  full_vec = paste(rep(sig_cat,each=16),rep(ctx_vec,times=6),sep=",")
+  snv_context = paste(substr(full_vec,5,5), substr(full_vec,1,1), substr(full_vec,7,7), sep="")
+  
+  # Specify Vectors for plot colours
+  col_vec_num <- rep(16,6)
+  col_vec = rep(c("dodgerblue","black","red","grey70","olivedrab3","plum2"),each=16)
+  
+  # Convert to matrix
+  MaxY = max(plotting_data)
+  sig_plot <- as.matrix(plotting_data)
+  
+  # Set up Signature Names and title
+  plot_title <- title
+  sig_title <- colnames(plotting_data)
+  
+  # Plot signatures
+  if(fixed_axis == TRUE && combined == FALSE) {
+    for (i in 1:ncol(sig_plot)) {
+      pdf(paste0(plot_title, "_", sig_title[i], ".pdf"), width=12,height=7)
+      par(xaxs='i', cex = 1, xpd = FALSE)
+      
+      #fixed_axis length
+      l = 5
+      
+      #  call empty plot
+      b = barplot(sig_plot[,i], col = NA, border = NA, axes = FALSE, las = 2, ylim=c(-l,l), 
+                  names.arg = snv_context, cex.lab = 1, cex.names = 0.70, cex.axis = 2, 
+                  space = 1, ylab = "Avg. Contribution Difference (%)")  
+      # add axis
+      axis(2, at = pretty((-l):(l), n = 4), col = 'grey90', las = 1, cex.axis = 1.5)
+      # add gridlines
+      abline_pos = pretty((-l):(l), n = 4)
+      abline(h = abline_pos[3], col = 'grey90')
+      abline(h = abline_pos[2], col = 'grey90')
+      abline(h = abline_pos[4], col = 'grey90')
+      abline(h = abline_pos[5], col = 'grey90')
+      abline(h = abline_pos[6], col = 'grey90')
+      abline(h = abline_pos[1], col = 'grey90')
+      
+      # call columns
+      b = barplot(sig_plot[,i], axes = FALSE, col=col_vec, add = T, border = NA, space = 1)
+      # add box surronding plot
+      box(lty = 1, col = 'grey90')
+      # add title
+      title(paste0(sig_title[i]), line = -2, adj = 0.01, cex.main = 2)
+      #add second title
+      # add rectangles and ann tations on top of the plot
+      par(xpd = NA)
+      for (j in 1:length(sig_cat)) {
+        xpos = b[c(sum(col_vec_num[1:j])-col_vec_num[j]+1,sum(col_vec_num[1:j]))]
+        rect(xpos[1]-0.5, l, xpos[2]+0.5, l*1.05, border=NA, col=unique(col_vec)[j])
+        text(x=mean(xpos), pos=3, y=l*1.05, label=sig_cat[j], cex = 1.25)
+      } 
+      par(xpd = FALSE)
+      dev.off()
+    } 
+  } 
+  
+  else if(fixed_axis && combined) {
+    for (i in 1:ncol(sig_plot)) {
+      pdf(paste0(plot_title,".pdf"), width = 18, height = 14)
+      par(mfrow = c(4,3), mar=c(5.1, 5.1, 4.1, 2.1), xaxs='i', cex = 0.75, xpd = FALSE)
+      for (i in 1:length(sig_title)) {
+        #fixed_axis length
+        l = 5
+        
+        #  call empty plot
+        b = barplot(sig_plot[,i], col = NA, border = NA, axes = FALSE, las = 2, ylim=c(-l,l), 
+                    names.arg = snv_context, cex.lab = 1, cex.names = 0.35, cex.axis = 1, 
+                    space = 1, ylab = "Average Contribution Difference (%)")  
+        # add axis
+        axis(2, at = pretty((-l):(l), n = 4), col = 'grey90', las = 1, cex.axis = 1)
+        # add gridlines
+        abline_pos = pretty((-l):(l), n = 4)
+        abline(h = abline_pos[3], col = 'grey90')
+        abline(h = abline_pos[2], col = 'grey90')
+        abline(h = abline_pos[4], col = 'grey90')
+        abline(h = abline_pos[5], col = 'grey90')
+        abline(h = abline_pos[6], col = 'grey90')
+        abline(h = abline_pos[1], col = 'grey90')
+        
+        # call columns
+        b = barplot(sig_plot[,i], axes = FALSE, col=col_vec, add = T, border = NA, space = 1)
+        # add box surronding plot
+        box(lty = 1, col = 'grey90')
+        # add title
+        title(paste0(sig_title[i]), line = -l*0.85, adj = 0.01, cex.main = 1.3)
+        # add rectangles and annotations on top of the plot
+        par(xpd = NA)
+        for (j in 1:length(sig_cat)) {
+          xpos = b[c(sum(col_vec_num[1:j])-col_vec_num[j]+1,sum(col_vec_num[1:j]))]
+          rect(xpos[1]-0.5, l, xpos[2]+0.5, l*1.05, border=NA, col=unique(col_vec)[j])
+          text(x=mean(xpos), pos=3, y=l*1, label=sig_cat[j], cex = 0.75)
+        } 
+        par(xpd = FALSE)
+      }
+      dev.off()
+    } 
+    
+  } else if(fixed_axis == FALSE && combined == FALSE){
+    print("Variable Axis")
+    for (i in 1:ncol(sig_plot)) {
+      pdf(paste0(outdir,plot_title," - ",sig_title[i], ".pdf"), width=12,height=7)
+      par(xaxs='i', cex = 1, xpd = FALSE)
+      #  define maxy and miny
+      #max_prob <- sig_plot[,i]
+      maxy = max(sig_plot[,i])
+      miny = -1*min(sig_plot[,i])
+      # define axis length
+      axis_length <- if (maxy > miny) {print(maxy)} else {print(miny)}
+      
+      high <- round((1.5*axis_length), digits =1)
+      low <- round((-1.5*axis_length), digits = 1)
+      print(high)
+      print(low)
+      
+      #  call empty plot
+      b = barplot(sig_plot[,i], col = NA, border = NA, axes = FALSE, las = 2, ylim=c(low, high), 
+                  names.arg = snv_context, cex.lab = 1, cex.names = 0.70, cex.axis = 2, 
+                  space = 1, ylab = "Average Contribution Difference (%)")  
+      
+      plot_vector <- pretty(c(low,high), n=4)
+      #plot_vector <- seq(low, high, length.out = 4)
+      print(plot_vector)
+      # add axis
+      axis(2, at = plot_vector, col = 'grey90', las = 1, cex.axis = 1.5)
+      
+      # add gridlines 
+      abline_pos = plot_vector
+      abline(h = abline_pos[1], col = 'grey90')
+      abline(h = abline_pos[2], col = 'grey90')
+      abline(h = abline_pos[3], col = 'grey90')
+      abline(h = abline_pos[4], col = 'grey90')
+      abline(h = abline_pos[5], col = 'grey90')
+      abline(h = abline_pos[6], col = 'grey90')
+      abline(h = abline_pos[7], col = 'grey90')
+      abline(h = abline_pos[8], col = 'grey90')
+      abline(h = abline_pos[9], col = 'grey90')
+      abline(h = abline_pos[10], col = 'grey90')
+      
+      # call columns
+      b = barplot(sig_plot[,i], axes = FALSE, col=col_vec, add = T, border = NA, space = 1)
+      # add box surronding plot
+      box(lty = 1, col = 'grey90')
+      # add title
+      title(paste0(sig_title[i], " versus ", ref_profile), line = -1.5, adj = 0.01, cex.main = 2)
+     
+      # add rectangles and annotations on top of the plot
+      par(xpd = NA)
+      for (j in 1:length(sig_cat)) {
+        xpos = b[c(sum(col_vec_num[1:j])-col_vec_num[j]+1,sum(col_vec_num[1:j]))]
+        rect(xpos[1]-0.5, high, xpos[2]+0.5, high*1.06, border=NA, col=unique(col_vec)[j])
+        text(x=mean(xpos), pos=3, y=high*1.06, label=sig_cat[j], cex = 1.25)
+      } 
+      par(xpd = FALSE)
+      dev.off()
+    } 
+  }
+  
+  else if(fixed_axis == FALSE && combined == TRUE){
+    print("Variable Axis")
+    for (i in 1:ncol(sig_plot)) {
+      pdf(paste0(plot_title, ".pdf"), width=12,height=7)
+      par(xaxs='i', cex = 1, xpd = FALSE)
+      #  define maxy and miny
+      #max_prob <- sig_plot[,i]
+      maxy = max(sig_plot)
+      miny = -1*min(sig_plot)
+      # define axis length
+      axis_length <- if (maxy > miny) {print(maxy)} else {print(miny)}
+      
+      high <- round((1.5*axis_length), digits =1)
+      low <- round((-1.5*axis_length), digits = 1)
+      print(high)
+      print(low)
+      
+      #  call empty plot
+      b = barplot(sig_plot[,i], col = NA, border = NA, axes = FALSE, las = 2, ylim=c(low, high), 
+                  names.arg = snv_context, cex.lab = 1, cex.names = 0.70, cex.axis = 2, 
+                  space = 1, ylab = "Average Contribution Difference (%)")  
+      
+      plot_vector <- pretty(c(low,high), n=4)
+      #plot_vector <- seq(low, high, length.out = 4)
+      print(plot_vector)
+      # add axis
+      axis(2, at = plot_vector, col = 'grey90', las = 1, cex.axis = 1.5)
+      
+      # add gridlines 
+      abline_pos = plot_vector
+      abline(h = abline_pos[1], col = 'grey90')
+      abline(h = abline_pos[2], col = 'grey90')
+      abline(h = abline_pos[3], col = 'grey90')
+      abline(h = abline_pos[4], col = 'grey90')
+      abline(h = abline_pos[5], col = 'grey90')
+      abline(h = abline_pos[6], col = 'grey90')
+      abline(h = abline_pos[7], col = 'grey90')
+      abline(h = abline_pos[8], col = 'grey90')
+      abline(h = abline_pos[9], col = 'grey90')
+      abline(h = abline_pos[10], col = 'grey90')
+      
+      # call columns
+      b = barplot(sig_plot[,i], axes = FALSE, col=col_vec, add = T, border = NA, space = 1)
+      # add box surronding plot
+      box(lty = 1, col = 'grey90')
+      # add title
+      title(paste0(sig_title[i]), line = -1.5, adj = 0.01, cex.main = 2)
+      
+      # add rectangles and annotations on top of the plot
+      par(xpd = NA)
+      for (j in 1:length(sig_cat)) {
+        xpos = b[c(sum(col_vec_num[1:j])-col_vec_num[j]+1,sum(col_vec_num[1:j]))]
+        rect(xpos[1]-0.5, high, xpos[2]+0.5, high*1.06, border=NA, col=unique(col_vec)[j])
+        text(x=mean(xpos), pos=3, y=high*1.06, label=sig_cat[j], cex = 1.25)
+      } 
+      par(xpd = FALSE)
+      dev.off()
+    } 
+  }
+}
+
+
+##Output
+#Plot!
+ref_profile='Post cessation branch'
+plot_standard_SNV_signatures("Comparison_of_Spectra_First_positive_branch_22Sept", plotting_data, outdir,ref_profile,fixed_axis=FALSE, combined = FALSE)
+
+```
+
+Run context pairwise T-tests
+```{r}
+## Extract the contexts
+trinuc_contexts <- colnames(T_test_df)[2:97]
+
+# Keep only the two classes of interest
+dat <- subset(
+  T_test_df,
+  class %in% c("Post cessation branch", "Negative Crypt")
+)
+
+# Run t-test for every trinucleotide context
+results <- lapply(trinuc_contexts, function(context) {
+  
+  test <- t.test(dat[[context]] ~ dat$class)
+  
+  data.frame(
+    context = context,
+    mean_post_cessation = mean(
+      dat[[context]][dat$class == "Post cessation branch"],
+      na.rm = TRUE
+    ),
+    mean_negative_crypt = mean(
+      dat[[context]][dat$class == "Negative Crypt"],
+      na.rm = TRUE
+    ),
+    t_statistic = unname(test$statistic),
+    df = unname(test$parameter),
+    p_value = test$p.value,
+    conf_low = test$conf.int[1],
+    conf_high = test$conf.int[2]
+  )
+})
+
+# Combine all contexts into one table
+results_df <- do.call(rbind, results)
+
+results_df$adjp_value=p.adjust(results_df$p_value)
+```
+## Session information
+
+```{r session-info}
+sessionInfo()
+```
+

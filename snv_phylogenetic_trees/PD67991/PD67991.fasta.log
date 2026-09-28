@@ -1,0 +1,107 @@
+MPBoot version 1.1.0 for Linux 64-bit built Mar 23 2018
+Copyright (c) 2016 Diep Thi Hoang, Le Sy Vinh, Tomas Flouri, Alexandros Stamatakis, Arndt von Haeseler and Bui Quang Minh.
+
+Host:    node-13-21 (AVX2, FMA3, 2151 GB RAM)
+Command: mpboot -s PD67991.fasta -bb 1000 -cost e -st DNA
+Seed:    505355 (Using SPRNG - Scalable Parallel Random Number Generator)
+Time:    Tue Sep  1 22:04:16 2026
+Kernel:  AVX
+
+Reading alignment file PD67991.fasta ... Fasta format detected
+Alignment most likely contains DNA/RNA sequences
+Alignment has 21 sequences with 13778 columns and 847 patterns
+ID   Sequence         #Gap/Ambiguity
+1    Ancestral        0    (0.000%)	4
+2    PD67991b_lo0003  125  (0.907%)	4
+3    PD67991b_lo0001  147  (1.067%)	4
+4    PD67991c_lo0003  139  (1.009%)	4
+5    PD67991c_lo0005  94   (0.682%)	4
+6    PD67991b_lo0010  172  (1.248%)	4
+7    PD67991c_lo0001  479  (3.477%)	4
+8    PD67991b_lo0005  141  (1.023%)	4
+9    PD67991b_lo0021  161  (1.169%)	4
+10   PD67991c_lo0009  201  (1.459%)	4
+11   PD67991b_lo0014  204  (1.481%)	4
+12   PD67991c_lo0010  134  (0.973%)	4
+13   PD67991c_lo0014  329  (2.388%)	4
+14   PD67991c_lo0006  185  (1.343%)	4
+15   PD67991c_lo0015  393  (2.852%)	4
+16   PD67991c_lo0012  113  (0.820%)	4
+17   PD67991b_lo0011  102  (0.740%)	4
+18   PD67991c_lo0008  169  (1.227%)	4
+19   PD67991c_lo0002  162  (1.176%)	4
+20   PD67991b_lo0023  251  (1.822%)	4
+21   PD67991c_lo0011  188  (1.364%)	4
+**** TOTAL            3889 (1.344%)
+Cost matrix satisfies triangular inenquality
+Time for parsimony tree construction: 0.015 seconds
+Parsimony score: 11650
+Reordering patterns in alignment by decreasing order of pattern parsimony... 0.001 seconds
+
+Create initial parsimony tree by phylogenetic likelihood library (PLL)... 0.007 seconds
+Generating 1000 samples for bootstrap approximation...
+
+NOTE: 2.929 MB RAM is required!
+Current best tree score: 11650
+
+Generating 99 parsimony trees... (58 duplicated parsimony trees)
+CPU time: 1
+Finish initializing candidate tree set. Number of distinct locally optimal trees: 42
+Current best score: 11650 / CPU time: 1
+
+Time: 0h:0m:0s
+NOTE: REPS computation is segmented into 3 parts for speed...
+segment#1 ends at 48
+segment#2 ends at 160
+segment#3 ends at 676
+0 seconds.
+RATCHET Iteration 10 / Score: 11650 / Time: 0h:0m:1s
+RATCHET Iteration 20 / Score: 11650 / Time: 0h:0m:1s (0h:0m:7s left)
+RATCHET Iteration 30 / Score: 11650 / Time: 0h:0m:1s (0h:0m:4s left)
+RATCHET Iteration 40 / Score: 11650 / Time: 0h:0m:2s (0h:0m:3s left)
+RATCHET Iteration 50 / Score: 11650 / Time: 0h:0m:2s (0h:0m:2s left)
+RATCHET Iteration 60 / Score: 11650 / Time: 0h:0m:2s (0h:0m:1s left)
+RATCHET Iteration 70 / Score: 11650 / Time: 0h:0m:2s (0h:0m:1s left)
+RATCHET Iteration 80 / Score: 11650 / Time: 0h:0m:2s (0h:0m:0s left)
+RATCHET Iteration 90 / Score: 11650 / Time: 0h:0m:2s (0h:0m:0s left)
+RATCHET Iteration 100 / Score: 11650 / Time: 0h:0m:3s (0h:0m:0s left)
+Optimizing bootstrap trees ...
+100 replicates done
+200 replicates done
+300 replicates done
+400 replicates done
+500 replicates done
+600 replicates done
+700 replicates done
+800 replicates done
+900 replicates done
+1000 replicates done
+CPU Time used:  17 sec.
+NOTE: At the end, 9661 bootstrap candidate trees evaluated.
+Scores of best 5 trees: 
+11650 11650 11650 11650 11650 
+BEST SCORE FOUND : 11650
+Creating bootstrap support values...
+Split supports printed to NEXUS file PD67991.fasta.splits.nex
+
+CPU time used for tree search: 19.327 sec (0h:0m:19s)
+Wall-clock time used for tree search: 20.318 sec (0h:0m:20s)
+Total CPU time used: 19.529 sec (0h:0m:19s)
+Total wall-clock time used: 21.535 sec (0h:0m:21s)
+
+Computing bootstrap consensus tree...
+Reading input file PD67991.fasta.splits.nex...
+21 taxa and 50 splits.
+Consensus tree written to PD67991.fasta.contree
+Parsimony score of consensus tree: 11650
+
+Analysis results written to: 
+  MPBoot report:                 PD67991.fasta.mpboot
+  Maximum-parsimony  tree:       PD67991.fasta.treefile
+
+Maximum parsimony bootstrap approximation results written to:
+  Split support values:          PD67991.fasta.splits.nex
+  Consensus tree:                PD67991.fasta.contree
+  Screen log file:               PD67991.fasta.log
+
+Date and Time: Tue Sep  1 22:04:44 2026

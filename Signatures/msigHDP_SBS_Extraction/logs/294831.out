@@ -1,0 +1,43 @@
+
+------------------------------------------------------------
+Sender: LSF System <lsfadmin@dgx-b11>
+Subject: Job 294831: <Rscript ./msigHDP_master.R> in cluster <farm22> Exited
+
+Job <Rscript ./msigHDP_master.R> was submitted from host <farm22-head2> by user <hm14> in cluster <farm22> at Sat Sep 26 11:29:56 2026
+Job was executed on host(s) <16*dgx-b11>, in queue <gpu>, as user <hm14> in cluster <farm22> at Sat Sep 26 11:29:58 2026
+</nfs/users/nfs_h/hm14> was used as the home directory.
+</lustre/scratch125/casm/teams/team267/users/hm14/paediatric_colon_project/mutational_signatures/msigHDP_patients> was used as the working directory.
+Started at Sat Sep 26 11:29:58 2026
+Terminated at Sat Sep 26 13:49:12 2026
+Results reported at Sat Sep 26 13:49:12 2026
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+Rscript ./msigHDP_master.R
+------------------------------------------------------------
+
+Exited with exit code 1.
+
+Resource usage summary:
+
+    CPU time :                                   111146.47 sec.
+    Max Memory :                                 20146 MB
+    Average Memory :                             14300.21 MB
+    Total Requested Memory :                     50000.00 MB
+    Delta Memory :                               29854.00 MB
+    Max Swap :                                   -
+    Max Processes :                              23
+    Max Threads :                                27
+    Run time :                                   8351 sec.
+    Turnaround time :                            8356 sec.
+
+The output (if any) is above this job summary.
+
+
+
+PS:
+
+Read file <./logs/294831.err> for stderr output of this job.
+

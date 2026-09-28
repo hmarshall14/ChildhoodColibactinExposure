@@ -19,7 +19,7 @@ library(broom.mixed)
 load in relevant data frames for this analysis :
 ```{r}
 crypt_metadata<-read.csv('../Data/biopsy_metadata.csv')
-crypt_signature_attributions <- read.csv('../Data/crypt_signature_attributions.csv')
+crypt_signature_attributions <- read_sheet("https://docs.google.com/spreadsheets/d/1F7razRjb5W6G-TTHCunqjq1C0w5EbE_7JG9DB6_STnw/edit?gid=1018723092#gid=1018723092")
 ```
 
 ## a : summary statistics of exposures:
@@ -36,6 +36,25 @@ print(paste0('Total number of patients : n=',all_patients))  # n=85 patients
 print(paste0('Patients positive : n=',pos_patients))  # n=37 patients
 print(paste0('Proportion of patients positive : ',proportion_patients_positive,"%"))  # n=37 patients
 print(paste0('Biopsies positive : n=',pos_biopsy)) # n=48 biopsies
+```
+
+State the number of positive crypts per biopsy :
+```{r}
+crypt_signature_attributions%>%
+  filter(biopsy_colibactin_pos==TRUE)%>%
+  group_by(patient)%>%
+  mutate(crypts=n(),crypt_positive=SBS88>0 & ID18> 0)%>%
+  summarise(crypts=median(crypts),
+            positive_crypts=sum(crypt_positive))%>%
+  mutate(proportion_pos=positive_crypts/crypts)%>%
+  summarise(individuals=n(),
+            median_pos=median(positive_crypts),
+            median_prop=median(proportion_pos),
+            lower_q = quantile(proportion_pos,0.25),
+            upper_q = quantile(proportion_pos,0.75),
+            max= max(positive_crypts),
+            number_all_positive_crypts=sum(positive_crypts==crypts),
+            number_one_positive_crypt=sum(positive_crypts==1)) # summarise the number of crypts positive per biopsy
 ```
 ### ii : compare prevalence of colibactin by cohort :
 compare prevalence of colibactin positive between ibd and normal individuals:
@@ -55,8 +74,10 @@ n_normal_pos=cohort_sum_table['Normal','TRUE']
 prop_normal_pos=round(cohort_sum_table['Normal','TRUE'] / rowSums(cohort_sum_table)['Normal']*100)
 
 ## print the outputs
+print(paste0('Total Normal patients : n=',sum(cohort_sum_table['Normal',])))
 print(paste0('Normal patients positive : n=',n_normal_pos))  # n=14 patients
 print(paste0('Proportion normal patients positive : ',prop_normal_pos, '%'))  # 45%
+print(paste0('Total IBD patients : n=',sum(cohort_sum_table['IBD',])))
 print(paste0('IBD patients positive : n=',n_ibd_pos))  # n=21 patients
 print(paste0('Proportion IBD patients positive : n=',prop_ibd_pos,'%')) # n=39%
 ```
@@ -83,15 +104,17 @@ nationality_table <- left_join(crypt_signature_attributions, crypt_metadata,by=c
 ## summarise by cohort :
 n_uk_pos=nationality_table['UK','TRUE']
 prop_uk_pos=round(nationality_table['UK','TRUE'] / rowSums(nationality_table)['UK']*100)
-n_danish_pos=nationality_table['Danish','TRUE']
-prop_danish_pos=round(nationality_table['Danish','TRUE'] / rowSums(nationality_table)['Danish']*100)
+n_danish_pos=nationality_table['Denmark','TRUE']
+prop_danish_pos=round(nationality_table['Denmark','TRUE'] / rowSums(nationality_table)['Denmark']*100)
 
 # print summaries
-print(paste0('UK patients positive : n=',n_uk_pos))  # n=85 patients
-print(paste0('Proportion UK patients positive : ',prop_uk_pos, '%'))  # n=37 patients
-print(paste0('Danise patients positive : n=',n_danish_pos))  # n=37 patients
-print(paste0('Proportion UK patients positive : n=',prop_danish_pos,'%')) # n=48 biopsies
+print(paste0('UK patients : n=',sum(nationality_table['UK',])))  # n=73 patients
+print(paste0('UK patients positive : n=',n_uk_pos))  # n=50 patients
+print(paste0('Proportion UK patients positive : ',prop_uk_pos, '%'))  #68%
 
+print(paste0('Danish patients : n=',sum(nationality_table['Denmark',])))  # n=17 patients
+print(paste0('Danish patients positive : n=',n_danish_pos))  # n=7 patients
+print(paste0('Proportion Danish patients positive : n=',prop_danish_pos,'%')) # n=41%
 ```
 
 ```{r}
@@ -123,13 +146,14 @@ Provide a breakdown of positive biopsies by anatomical location
 ## create a breakdown of positive biopsies by locaiton
 donors_two_biopsies_df%>%
   filter(patient_colibactin_pos==TRUE)%>%
-  filter(!duplicated(biopsy))%>%
+  filter(location%in%c('Sigmoid','Ascending'))%>%
+  distinct(patient, location,.keep_all=TRUE)%>%
   select(patient, biopsy_colibactin_pos,location)%>%
   pivot_wider(names_from=location, values_from =biopsy_colibactin_pos)%>%
   mutate(summary=case_when(Sigmoid==TRUE & Ascending==TRUE ~'Both positive',
                        Sigmoid==TRUE & Ascending ==FALSE ~ 'Only sigmoid positive',
                        Sigmoid==FALSE & Ascending ==TRUE ~ 'Only ascending positive',
-                       TRUE ~ 'Neither'))%>%
+                       TRUE ~ 'Neither'))
   group_by(summary)%>%
   summarise(n=length(summary))
 ```
@@ -180,7 +204,7 @@ print(paste0('Max ID18 burdne:', max_id18_burden,' mutations'))
 location_df <- left_join(crypt_metadata,crypt_signature_attributions,by=c('biopsy','patient'))%>%
   mutate(SBS88=SBS88/sensitivitySBS,ID18=ID18/sensitivityID)%>%
   filter(SBS88>0 & ID18>0& biopsy_colibactin_pos==TRUE)%>% # subset positive crypts
-  select(patient, crypt,site,SBS88,ID18)%>%
+  select(patient, sample,site,SBS88,ID18)%>%
   pivot_longer(cols=c('SBS88','ID18'),values_to='count','names_to'='signature')
 sigs <- c("SBS88", "ID18")
 
@@ -209,7 +233,7 @@ location_results %>%
 ibd_normal_df <- left_join(crypt_metadata,crypt_signature_attributions,by=c('biopsy','patient'))%>%
   mutate(SBS88=SBS88/sensitivitySBS,ID18=ID18/sensitivityID)%>%
   filter(SBS88>0 & ID18>0& biopsy_colibactin_pos==TRUE)%>% # subset positive crypts
-  select(patient, crypt,site,cohort,SBS88,ID18)%>%
+  select(patient, sample,site,cohort,SBS88,ID18)%>%
   pivot_longer(cols=c('SBS88','ID18'),values_to='count','names_to'='signature')
 sigs <- c("SBS88", "ID18")
 

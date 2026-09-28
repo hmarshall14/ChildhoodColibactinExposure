@@ -1,0 +1,87 @@
+MPBoot version 1.1.0 for Linux 64-bit built Mar 23 2018
+Copyright (c) 2016 Diep Thi Hoang, Le Sy Vinh, Tomas Flouri, Alexandros Stamatakis, Arndt von Haeseler and Bui Quang Minh.
+
+Host:    node-13-12 (AVX2, FMA3, 2151 GB RAM)
+Command: mpboot -s PD68015.fasta -bb 1000 -cost e -st DNA
+Seed:    711126 (Using SPRNG - Scalable Parallel Random Number Generator)
+Time:    Tue Aug 25 13:55:46 2026
+Kernel:  AVX
+
+Reading alignment file PD68015.fasta ... Fasta format detected
+Alignment most likely contains DNA/RNA sequences
+Alignment has 6 sequences with 3088 columns and 134 patterns
+ID   Sequence         #Gap/Ambiguity
+1    Ancestral        0    (0.000%)	4
+2    PD68015c_lo0002  54   (1.749%)	4
+3    PD68015c_lo0003  205  (6.639%)	4
+4    PD68015c_lo0007  358  (11.593%)	4
+5    PD68015c_lo0001  195  (6.315%)	4
+6    PD68015b_lo0001  205  (6.639%)	4
+**** TOTAL            1017 (5.489%)
+Cost matrix satisfies triangular inenquality
+Time for parsimony tree construction: 0.000 seconds
+Parsimony score: 2507
+Reordering patterns in alignment by decreasing order of pattern parsimony... 0.000 seconds
+
+Create initial parsimony tree by phylogenetic likelihood library (PLL)... 0.000 seconds
+Generating 1000 samples for bootstrap approximation...
+
+NOTE: 0.111 MB RAM is required!
+Current best tree score: 2507
+
+Generating 99 parsimony trees... (99 duplicated parsimony trees)
+CPU time: 0
+Finish initializing candidate tree set. Number of distinct locally optimal trees: 1
+Current best score: 2507 / CPU time: 0
+
+Time: 0h:0m:0s
+RATCHET Iteration 10 / Score: 2507 / Time: 0h:0m:0s
+RATCHET Iteration 20 / Score: 2507 / Time: 0h:0m:0s (0h:0m:0s left)
+RATCHET Iteration 30 / Score: 2507 / Time: 0h:0m:0s (0h:0m:0s left)
+RATCHET Iteration 40 / Score: 2507 / Time: 0h:0m:0s (0h:0m:0s left)
+RATCHET Iteration 50 / Score: 2507 / Time: 0h:0m:0s (0h:0m:0s left)
+RATCHET Iteration 60 / Score: 2507 / Time: 0h:0m:0s (0h:0m:0s left)
+RATCHET Iteration 70 / Score: 2507 / Time: 0h:0m:0s (0h:0m:0s left)
+RATCHET Iteration 80 / Score: 2507 / Time: 0h:0m:0s (0h:0m:0s left)
+RATCHET Iteration 90 / Score: 2507 / Time: 0h:0m:0s (0h:0m:0s left)
+RATCHET Iteration 100 / Score: 2507 / Time: 0h:0m:0s (0h:0m:0s left)
+Optimizing bootstrap trees ...
+100 replicates done
+200 replicates done
+300 replicates done
+400 replicates done
+500 replicates done
+600 replicates done
+700 replicates done
+800 replicates done
+900 replicates done
+1000 replicates done
+CPU Time used:  1 sec.
+NOTE: At the end, 2192 bootstrap candidate trees evaluated.
+Scores of best 5 trees: 
+2507 
+BEST SCORE FOUND : 2507
+Creating bootstrap support values...
+Split supports printed to NEXUS file PD68015.fasta.splits.nex
+
+CPU time used for tree search: 0.954 sec (0h:0m:0s)
+Wall-clock time used for tree search: 1.044 sec (0h:0m:1s)
+Total CPU time used: 0.988 sec (0h:0m:0s)
+Total wall-clock time used: 1.088 sec (0h:0m:1s)
+
+Computing bootstrap consensus tree...
+Reading input file PD68015.fasta.splits.nex...
+6 taxa and 17 splits.
+Consensus tree written to PD68015.fasta.contree
+Parsimony score of consensus tree: 2507
+
+Analysis results written to: 
+  MPBoot report:                 PD68015.fasta.mpboot
+  Maximum-parsimony  tree:       PD68015.fasta.treefile
+
+Maximum parsimony bootstrap approximation results written to:
+  Split support values:          PD68015.fasta.splits.nex
+  Consensus tree:                PD68015.fasta.contree
+  Screen log file:               PD68015.fasta.log
+
+Date and Time: Tue Aug 25 13:55:47 2026
