@@ -1,0 +1,60 @@
+THIS FILE CONTAINS THE METADATA ABOUT SYSTEM AND RUNTIME
+
+
+-------System Info-------
+Operating System Name: Linux
+Nodename: farm22-head1
+Release: 5.15.0-187-generic
+Version: #197-Ubuntu SMP Fri Jul 17 19:17:01 UTC 2026
+
+-------Python and Package Versions------- 
+Python Version: 3.11.6
+SigProfilerMatrixGenerator Version: 1.2.30
+SigProfilerPlotting version: 1.3.24
+matplotlib version: 3.8.2
+statsmodels version: 0.14.1
+scipy version: 1.13.1
+pandas version: 1.5.3
+numpy version: 1.26.2
+
+-------Vital Parameters Used for the execution -------
+Project: coding_mutations
+Genome: GRCh38
+Input File Path: ./
+exome: False
+bed_file: None
+chrom_based: False
+plot: False
+tsb_stat: False
+seqInfo: True
+
+-------Date and Time Data------- 
+Date and Clock time when the execution started: 2026-10-12 21:59:34.534238
+
+
+-------Runtime Checkpoints------- 
+Chromosome 2 done
+Chromosome 20 done
+Chromosome 14 done
+Chromosome 16 done
+Chromosome Y done
+Chromosome X done
+Chromosome 7 done
+Chromosome 19 done
+Chromosome 15 done
+Chromosome 3 done
+Chromosome 6 done
+Chromosome 8 done
+Chromosome 21 done
+Chromosome 12 done
+Chromosome 1 done
+Chromosome 11 done
+Chromosome 10 done
+Chromosome 9 done
+Chromosome 18 done
+Chromosome 17 done
+Chromosome 22 done
+Chromosome MT done
+Chromosome 4 done
+Chromosome 13 done
+Chromosome 5 done

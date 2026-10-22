@@ -1,0 +1,3 @@
+Missense	Y	9357856	T:AG[C>A]CC	-1
+Missense	Y	12773635	N:TA[T>C]TT	-1
+Missense	Y	21903949	T:TA[T>C]AG	1

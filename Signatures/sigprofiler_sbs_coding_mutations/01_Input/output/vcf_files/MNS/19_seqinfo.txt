@@ -1,0 +1,1 @@
+Missense	19	45621269	CCAC>ACAT

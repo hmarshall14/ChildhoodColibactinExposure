@@ -25,9 +25,10 @@ per donor and location-specific slopes.
 ### Libraries
 
 ```{r libraries}
-library(tidyverse)     # dplyr, ggplot2, tibble, stringr, tidyr, ...
-library(lmerTest)      # loads lme4 and adds Satterthwaite p-values
+library(tidyverse)     
+library(lmerTest)      
 library(broom.mixed)
+library(patchwork)
 ```
 
 ### Input data
@@ -43,9 +44,9 @@ crypt_signature_attributions <- read.csv("../Data/crypt_signature_attributions.c
 location_levels <- c("Ascending", "Transverse", "Sigmoid")
 
 location_cols <- c(
-  Ascending  = "#84a9c6ff",
+  `Ascending`  = "#84a9c6ff",
   Transverse = "goldenrod3",
-  Sigmoid    = "palevioletred4"
+ `Sigmoid`  = "palevioletred4"
 )
 
 rates_theme <- theme_classic() +
@@ -74,10 +75,10 @@ summarise_rate_model <- function(model, mut_type, digits = 0) {
       location  = str_remove(term, "age:location"),
       mut_type  = mut_type,
       across(c(estimate, conf.low, conf.high), ~ round(.x, digits)),
-      text      = paste0(estimate, " mutations/year [", conf.low, ", ", conf.high, "]"),
+      text      = paste0(estimate, " mutations/year 95% CI [", conf.low, ", ", conf.high, "]"),
       intercept = round(lme4::fixef(model)[["(Intercept)"]], 0)
     ) %>%
-    select(
+    dplyr::select(
       mut_type, location,
       Estimate = estimate,
       lower_ci = conf.low,
@@ -89,7 +90,7 @@ summarise_rate_model <- function(model, mut_type, digits = 0) {
 # Expand a rate summary into per-location fitted lines across an age grid.
 make_fit_lines <- function(rate_summary, age_grid = seq(0, 20, length.out = 200)) {
   rate_summary %>%
-    select(location, intercept, slope = Estimate) %>%
+    dplyr::select(location, intercept, slope = Estimate) %>%
     crossing(age = age_grid) %>%
     mutate(
       fit      = intercept + slope * age,
@@ -113,7 +114,7 @@ make_rate_labels <- function(rate_summary, prefix) {
 coef_table <- function(model) {
   as.data.frame(summary(model)$coefficients) %>%
     rownames_to_column("variable") %>%
-    rename(std_error = `Std. Error`, pvalue = `Pr(>|t|)`)
+    dplyr::rename(std_error = `Std. Error`, pvalue = `Pr(>|t|)`)
 }
 ```
 
@@ -146,10 +147,10 @@ background_df <- crypt_attributions %>%
   filter(
     cohort != "IBD",
     colonoscopy_finding != "FAP",
-    biopsy_SBS89_ID25_pos == FALSE,
+    biopsy_SBS89_ID83C_pos == FALSE,
     patient_colibactin_pos == FALSE
   ) %>%
-  # Exclude caecum, terminal ileum and rectum: too few samples
+  
   filter(location %in% location_levels) %>%
   # Retain crypts with clonal indel calls only
   filter(indel_median_vaf > 0.3)
@@ -202,13 +203,13 @@ sbs_biopsy_sum <- background_df %>%
     SBSBackground_lwr    = unname(quantile(SBSBackground, 0.25, na.rm = TRUE)),
     SBSBackground_upr    = unname(quantile(SBSBackground, 0.75, na.rm = TRUE)),
     age                  = median(age, na.rm = TRUE),
-    location             = first(location),
-    cohort               = first(cohort),
-    site                 = first(site),
+    location             = dplyr::first(location),
+    cohort               = dplyr::first(cohort),
+    site                 = dplyr::first(site),
     crypts               = n(),
-    biopsy_SBS89_ID25_pos  = first(biopsy_SBS89_ID25_pos),
+    biopsy_SBS89_ID83C_pos  = dplyr::first(biopsy_SBS89_ID83C_pos),
     patient_colibactin_pos = as.factor(max(patient_colibactin_pos)),
-    patient              = first(patient),
+    patient              = dplyr::first(patient),
     .groups = "drop"
   ) %>%
   mutate(
@@ -254,8 +255,7 @@ sbs_plot
 ```
 
 ```{r sbs-plot-export, results = "hide"}
-dir.create("../Figures", showWarnings = FALSE, recursive = TRUE)
-ggsave("../Figures/sbs_rates.svg", sbs_plot, width = 12, height = 8)
+ggsave("../Figure1/sbs_rates.svg", sbs_plot, width = 12, height = 8)
 ```
 
 ### 1c. Rates of small insertions and deletions
@@ -298,11 +298,11 @@ id_biopsy_sum <- background_df %>%
     IDBackground_lwr    = unname(quantile(indel_muts, 0.25, na.rm = TRUE)),
     IDBackground_upr    = unname(quantile(indel_muts, 0.75, na.rm = TRUE)),
     age                 = median(age, na.rm = TRUE),
-    cohort              = first(cohort),
-    site                = first(site),
-    location            = first(location),
+    cohort              = dplyr::first(cohort),
+    site                = dplyr::first(site),
+    location            = dplyr::first(location),
     patient_colibactin_pos = as.factor(max(patient_colibactin_pos)),
-    patient             = first(patient),
+    patient             = dplyr::first(patient),
     .groups = "drop"
   ) %>%
   mutate(
@@ -345,14 +345,14 @@ id_plot
 ```
 
 ```{r id-plot-export, results = "hide"}
-ggsave("../Figures/id_rates.svg", id_plot, width = 12, height = 8)
+ggsave("../Figure1/id_rates.svg", id_plot, width = 12, height = 8)
 ```
 
 ### 1d. Export rate estimates
 
 ```{r export-rates}
 background_rates_summary <- bind_rows(sbs_summary, id_summary) %>%
-  select(-text)
+  dplyr::select(-text)
 
 write.csv(
   background_rates_summary,
@@ -361,7 +361,7 @@ write.csv(
 )
 ```
 
-### 1e. Comparison of burden between cohorts
+### 1e. Comparison of background burden between cohorts
 
 #### i. SBS burden
 
@@ -369,16 +369,17 @@ All colibactin-negative, SBS89/ID25-negative crypts, retaining the IBD cohort.
 
 ```{r cohort-df}
 compare_cohort_df <- crypt_attributions %>%
-  filter(biopsy_SBS89_ID25_pos == FALSE, patient_colibactin_pos == FALSE)
+  filter(biopsy_SBS89_ID83C_pos == FALSE, patient_colibactin_pos == FALSE)%>%
+  mutate(cohort=factor(cohort,levels=c("Normal" ,"IBD")))
 ```
 
 ```{r cohort-models}
 age_location_ibd_included_lmer <- lmer(
-  SBSBackground ~ age:location + (1 | patient),
+  SBSBackground ~ age:site + (1 | patient),
   data = compare_cohort_df
 )
 age_location_cohort_lmer <- lmer(
-  SBSBackground ~ age:location + cohort + (1 | patient),
+  SBSBackground ~ age:site + cohort + (1 | patient),
   data = compare_cohort_df
 )
 ```
@@ -392,20 +393,20 @@ anova(age_location_cohort_lmer, age_location_ibd_included_lmer)
 ```{r cohort-summary}
 cohort_comparison_conf_int <- as.data.frame(confint(age_location_cohort_lmer)) %>%
   rownames_to_column("variable") %>%
-  rename(lower_ci = `2.5 %`, upper_ci = `97.5 %`)
+  dplyr::rename(lower_ci = `2.5 %`, upper_ci = `97.5 %`)
 
 cohort_comparison_summary <- coef_table(age_location_cohort_lmer) %>%
   left_join(cohort_comparison_conf_int, by = "variable") %>%
   mutate(
     across(c(Estimate, lower_ci, upper_ci), ~ round(.x, digits = 0)),
     pvalue = round(pvalue, digits = 3),
-    text   = paste0(Estimate, " mutations [", lower_ci, ", ", upper_ci, "]")
+    text   = paste0(Estimate, " mutations 95% CI [", lower_ci, ", ", upper_ci, "]")
   ) %>%
-  select(variable, Estimate, pvalue, text)
+  dplyr::select(variable, Estimate, pvalue, text)
 ```
 
-A negative estimate indicates a lower burden in the Normal cohort
-(reported: -193 mutations [-310, -76]).
+A positive estimate indicates a higher in IBD cohort
+(reported: 149 mutations 95% CI [59, 239]).
 
 ```{r cohort-summary-print}
 cohort_comparison_summary
@@ -417,7 +418,7 @@ cohort_comparison_summary
 signature_models <- c("SBS1", "SBS5", "SBS18") %>%
   set_names() %>%
   map(~ lmer(
-    as.formula(paste0(.x, " ~ age:location + cohort + (1 | patient)")),
+    as.formula(paste0(.x, " ~ age:site + cohort + (1 | patient)")),
     data = compare_cohort_df
   ))
 
@@ -425,7 +426,7 @@ signature_models <- c("SBS1", "SBS5", "SBS18") %>%
 signature_effects <- signature_models %>%
   map_dfr(
     ~ coef_table(.x) %>%
-      filter(variable == "cohortNormal") %>%
+      filter(variable == "cohortIBD") %>%
       transmute(
         estimate = round(abs(Estimate), 0),
         lower_ci = abs(round(Estimate + 1.96 * std_error, 0)),
@@ -434,7 +435,7 @@ signature_effects <- signature_models %>%
       ),
     .id = "signature"
   ) %>%
-  mutate(text = paste0(estimate, " mutations [", lower_ci, ", ", upper_ci, "], p = ", pvalue))
+  mutate(text = paste0(estimate, " mutations 95% CI [", lower_ci, ", ", upper_ci, "], p = ", pvalue))
 
 signature_effects
 ```
@@ -443,7 +444,7 @@ signature_effects
 
 ```{r id-cohort-model}
 indel_age_location_cohort_lmer <- lmer(
-  indel_muts ~ age:location + cohort + (1 | patient),
+  indel_muts ~ age:site + cohort + (1 | patient),
   data = compare_cohort_df
 )
 ```
@@ -451,18 +452,59 @@ indel_age_location_cohort_lmer <- lmer(
 ```{r id-cohort-summary}
 id_ibd_conf <- as.data.frame(confint(indel_age_location_cohort_lmer)) %>%
   rownames_to_column("variable") %>%
-  rename(lower_ci = `2.5 %`, upper_ci = `97.5 %`)
+  dplyr::rename(lower_ci = `2.5 %`, upper_ci = `97.5 %`)
 
 id_ibd_summary <- coef_table(indel_age_location_cohort_lmer) %>%
   left_join(id_ibd_conf, by = "variable") %>%
   mutate(
-    across(c(Estimate, lower_ci, upper_ci), ~ abs(round(.x, digits = 1))),
-    text = paste0(Estimate, " mutations/year [", lower_ci, ", ", upper_ci, "]")
+    across(c(Estimate, lower_ci, upper_ci), ~ (round(.x, digits = 1))),
+    pvalue=round(pvalue,4),
+    text = paste0(Estimate, " mutations/year 95% CI [", lower_ci, ", ", upper_ci, "]")
   ) %>%
-  select(variable, Estimate, pvalue, text)
+  dplyr::select(variable, Estimate, pvalue, text)
 
 id_ibd_summary
 ```
+```{r}
+sbs_pvalue=paste0('P = ',cohort_comparison_summary[cohort_comparison_summary$variable=='cohortIBD',]$pvalue)
+
+sbs_ibd_compare<-ggplot(data=compare_cohort_df,aes(x=cohort,y=snv_total_burden))+
+  geom_boxplot(fill='grey40')+
+  labs(x='',y='SBS Background mutation burden')+
+  scale_x_discrete(labels=c('Histologically Normal','Inflammatory Bowel\nDisease'))+
+  theme_classic()+
+  geom_text(aes(label = sbs_pvalue, y = 0.98*2100, x = 1.5),size=6)+
+  geom_segment(aes(x = 1, xend = 2, y = 0.96*2100, yend = 0.96*2100),color='grey20', inherit.aes = FALSE, size = 0.6) +
+  geom_segment(aes(x = 1, xend = 1, y = 0.96*2100,yend = 0.94*2100),  color='grey20',inherit.aes = FALSE, size = 0.6) +
+  geom_segment(aes(x = 2, xend = 2, y = 0.96*2100, yend = 0.94*2100),  color='grey20',inherit.aes = FALSE, size = 0.6) +
+  
+  theme(axis.title=element_text(face='bold',size=20),
+        axis.text.x=element_text(face='bold',size=20),
+        axis.text.y=element_text(size=16))
+```
+```{r}
+id_pvalue=paste0('P = ',round(id_ibd_summary[id_ibd_summary$variable=='cohortIBD',]$pvalue,3))
+
+id_ibd_compare<-ggplot(data=compare_cohort_df,aes(x=cohort,y=indel_total_burden))+
+  geom_boxplot(fill='grey40')+
+  labs(x='',y='ID Background mutation burden')+
+  scale_x_discrete(labels=c('Histologically Normal','Inflammatory Bowel\nDisease'))+
+  theme_classic()+
+  geom_text(aes(label = id_pvalue, y = 0.98*130, x = 1.5),size=6)+
+  geom_segment(aes(x = 1, xend = 2, y = 0.96*130, yend = 0.96*130),color='grey20', inherit.aes = FALSE, size = 0.6) +
+  geom_segment(aes(x = 1, xend = 1, y = 0.96*130,yend = 0.94*130),  color='grey20',inherit.aes = FALSE, size = 0.6) +
+  geom_segment(aes(x = 2, xend = 2, y = 0.96*130, yend = 0.94*130),  color='grey20',inherit.aes = FALSE, size = 0.6) +
+  
+  theme(axis.title=element_text(face='bold',size=20),
+        axis.text.x=element_text(face='bold',size=20),
+        axis.text.y=element_text(size=16))
+```
+```{r}
+svglite::svglite('../Supplementary_Figures/compare_background_muts_ibd_normal.svg',width=16,height=10)
+sbs_ibd_compare+id_ibd_compare
+dev.off()
+```
+
 
 ### 1f. Burden of structural variants
 

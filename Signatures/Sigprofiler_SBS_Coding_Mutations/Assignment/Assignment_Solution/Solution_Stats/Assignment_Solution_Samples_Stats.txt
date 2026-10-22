@@ -1,4 +1,0 @@
-Sample Names	Total Mutations	Cosine Similarity	L1 Norm	L1_Norm_%	L2 Norm	L2_Norm_%	KL Divergence	Correlation
-all_muts_compiled	589876	0.992	96533.327	16.365%	14165.534	12.577%	0.02868	0.989
-all_nonsense	341	0.81	253.461	74.329%	56.312	58.623%	0.53744	0.778
-all_missense	6047	0.957	2265.909	37.472%	427.227	29.573%	0.10785	0.948

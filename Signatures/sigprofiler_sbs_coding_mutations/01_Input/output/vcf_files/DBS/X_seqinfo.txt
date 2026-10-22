@@ -1,0 +1,1 @@
+Missense	X	109475301	Q:C[AC>CG]G	0

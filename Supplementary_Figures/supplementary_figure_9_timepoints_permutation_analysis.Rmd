@@ -1,0 +1,480 @@
+---
+title: "Permutation based analysis of phylogenetic trees"
+output:
+  github_document:
+    toc: true
+    toc_depth: 3
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  comment = "#>"
+)
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(patchwork)
+```
+
+```{r}
+## load in signature attribution to each branch branches attribution :
+msa_branches<-read.csv('../Signatures/MSA_Attribution/pruned_attribution_paediatric_branches_SBS_abs_mutations.csv')%>%
+  rename_with(.,~paste0(.x,'_branch'))
+
+crypt_pileup_sig_annotated<-read.csv('../Data/crypt_pileup_classification.csv')
+```
+# PERMUTATION ANALYSIS FOR PHYLOGENETIC TREES
+## a : create the pileup of crypt phylogenetics
+This is the same as in the scripts used to generate Figure 4
+### i : create pileup 
+```{r compute_branch_sens}
+## compute_branch_sens computes per branch sensitivities based off coverage and median vaf
+compute_branch_sens <- function(tree, tip_sens) {
+  Ntip  <- Ntip(tree)
+  Nnode <- tree$Nnode
+  sens <- rep(NA_real_, Ntip + Nnode)
+  
+  # match tip sensitivities to tip order
+  sens[1:Ntip] <- tip_sens[tree$tip.label,]
+  
+  po <- reorder.phylo(tree, "postorder")
+  edges <- po$edge
+  
+  for (i in seq_len(nrow(edges))) {
+    parent <- edges[i, 1]
+    children <- edges[edges[,1] == parent, 2]
+    
+    if (all(!is.na(sens[children]))) {
+      sens[parent] <- 1 - prod(1 - sens[children])
+    }
+  }
+  return(sens)  # named by node index implicitly
+}
+
+```
+
+```{r construct pileup of nodes for each crypt}
+##
+tip_sens<-crypt_signature_attributions%>%
+  dplyr::select(sample, sensitivitySBS)%>%
+  column_to_rownames(var='sample')
+
+# initiate a data frame for crypt pileup
+dir='../snv_phylogenetic_trees/'
+patients=list.files(dir)
+crypt_pileup=NULL
+sens_edge_compiled=NULL
+
+for (patient in patients){
+  if (file.exists(paste0(dir,patient,"/",patient,".tree_with_branch_length.tree"))){
+  tree = read.tree(paste0(dir,patient,"/",patient,".tree_with_branch_length.tree"))
+  
+  # adjust branch lengths for sensitivity :
+  sens_vec <- compute_branch_sens(tree, tip_sens)
+  sens_df <- data.frame(node = seq_along(sens_vec),sens = sens_vec)
+  edge_df <- as.data.frame(tree$edge)
+  
+  colnames(edge_df) <- c("parent", "child")
+  edge_df <- merge(edge_df, sens_df,  by.x = "child", by.y = "node",  all.x = TRUE)%>%
+    mutate(sens=replace_na(sens,1))
+  edge_df$Samples=paste0(patient,'_',edge_df$child)
+  sens_edge_compiled<-rbind(sens_edge_compiled,edge_df)
+
+  tree_df=ggtree::fortify(tree)
+  
+  # pile up branches for each crypt :
+  crypts=unique(tree_df$label)
+  crypts=crypts[!is.na(crypts)]
+  crypts=crypts[str_detect(crypts,'PD')]
+  for (n in 1:length(crypts)){
+    crypt=crypts[n]
+    
+    end_branch=tree_df[tree_df$label==crypt&!is.na(tree_df$label),]
+    branch_pileup=end_branch
+    branch=end_branch
+    while (branch$node!=branch$parent){
+      new_node=branch$parent
+      new_branch=tree_df[tree_df$node==new_node,]
+      branch_pileup<-rbind(branch_pileup,new_branch)
+      branch=new_branch
+    }
+    branch_pileup$crypt=crypt
+  
+  crypt_pileup=rbind(crypt_pileup,branch_pileup)
+  }
+  } else { crypt_pileup= crypt_pileup }
+}
+
+
+crypt_pileup$patient=str_extract(crypt_pileup$crypt,'PD\\d{5}')
+crypt_pileup$biopsy=str_extract(crypt_pileup$crypt,'PD\\d{5}\\w')
+crypt_pileup$branch_id=paste(crypt_pileup$patient,crypt_pileup$node,sep="_")
+crypt_pileup<-crypt_pileup%>%filter(!duplicated(paste0(crypt,branch_id)))
+sens_edge_compiled<-sens_edge_compiled%>% dplyr::select(-parent,-child)
+```
+
+### ii : adjust mutational signature attributions for the sensitivity for each branch
+```{r}
+## load in signature attribution to each branch branches attribution :
+msa_branches<-read.csv('../Signatures/MSA_Attribution/pruned_attribution_paediatric_branches_SBS_abs_mutations.csv')%>%
+  rename_with(.,~paste0(.x,'_branch'))
+
+## construct a dataframe with signature attributions adjusted :
+crypt_branch<-crypt_pileup %>% dplyr::select(biopsy, crypt, branch_id)
+signature_attributions_compiled<-left_join(crypt_branch,msa_branches,by=c('branch_id'='X_branch')) %>%
+  left_join(sens_edge_compiled,by=c('branch_id'='Samples'))%>%
+  mutate(sens=replace_na(sens,1))%>%
+  mutate(across(everything(), ~replace_na(.x,0)))%>%
+  mutate(across(contains('SBS'),~round(.x,digits=3)),
+         across(contains('SBS'), ~.x / sens))
+```
+
+### iii : annotate the branches with sbs signature counts
+```{r }
+## begin with the crypt pileup and combine with the attributions df :
+crypt_pileup_sig_annotated<-left_join(x=crypt_pileup, y=signature_attributions_compiled, by=c('biopsy','crypt','branch_id'))
+
+crypt_pileup_sig_annotated<-left_join(crypt_pileup_sig_annotated,positive_biopsies,by='biopsy')
+
+#crypt_pileup_sig_annotated_current_results <-crypt_pileup_sig_annotated  
+## load in patient metadata
+age_df=crypt_metadata%>%dplyr::select(patient,age)%>%unique()
+colnames(age_df)<-c('patient','Age')
+
+## construct a dataframe for creating relevant data time points :
+crypt_pileup_sig_annotated=crypt_pileup_sig_annotated%>%
+  
+  # zero truncal mutations :
+  mutate(across(contains("SBS"), ~ replace_na(.x, 0)), # these are typically the root branches 
+    muts_assigned=rowSums(pick(contains('_branch'))),
+    across(contains('_branch'),~ifelse(muts_assigned>branch.length,(.x/muts_assigned)*branch.length,.x)),
+    across(contains("_branch"),~ if_else(branch.length <= 50 & x<50, 0, .x)),
+         SBSUnassigned = branch.length - rowSums(pick(contains('_branch'))))%>%
+  
+  arrange(crypt, x)%>%
+  group_by(crypt)%>%
+  
+  # calculate the background mutaitons for a given branch
+  mutate(background_muts_branch = SBS1_branch+SBS5_branch+SBS18_branch+SBSUnassigned) %>%
+  
+  # calculcate the total background mutations for the start and end points of a branch 
+  mutate(background_muts_branch_end_msa  = cumsum(background_muts_branch),
+         background_muts_branch_start_msa = background_muts_branch_end_msa - background_muts_branch) %>%
+  
+  
+  # calculate the total mutations for the end of the branch and total background mutation for a crypt
+  mutate(all_muts_count_branch_end_msa = cumsum(background_muts_branch + SBS88_branch),
+         background_muts_crypt_total_msa = sum(background_muts_branch)) %>%
+  ungroup() 
+
+crypt_pileup_classification<-crypt_pileup_sig_annotated %>%
+  left_join(unpruned_weights,by=c('branch_id'='Sample'))%>%
+  # identify negative branches that follow positive branches
+  group_by(crypt) %>%
+  mutate(branch_status=case_when(branch.length <= 50 & x<50~'Truncal',
+                                 sum(SBS88_branch > 0) ==0~'Negative Crypt',
+                                 sum(SBS88_branch > 0) > 0 & cumsum(SBS88_branch>0)==0~'Pre exposure',
+                                 cumsum(SBS88_branch>0)==1 & SBS88_branch>0~'First positive branch',
+                                 cumsum(SBS88_branch>0)>1 & SBS88_branch>0~'Second positive branch',
+                                 cumsum(SBS88_branch>0)>0 & SBS88_branch==0 & SBS88_unpruned==0&branch.length>80~'Post cessation branch',
+                                 (cumsum(SBS88_branch>0)>0 & SBS88_branch==0) & (SBS88_unpruned>0 | branch.length<80)~'Post cessation branch - Indeterminant',
+                                 TRUE~'other')
+                                 
+                                 )%>%
+  left_join(background_mut_rates, by = "crypt") %>%
+  #left_join(id_burdens, by ='branch_id',fill) %>%
+  mutate(
+    #id_burden=replace_na(id_burden,0),
+         across(contains('background_muts_branch'), ~.x/ background_muts_rate_msa,.names='age_{.col}'),
+         branch_duration=age_background_muts_branch_end_msa - age_background_muts_branch_start_msa,
+         #id_rate=id_burden/branch_duration
+         )
+```
+
+## b : create permutation dataframe
+```{r}
+permutation_analysis_dataframe<-crypt_pileup_sig_annotated%>%
+  mutate(SBS88_branch_positive=SBS88_branch>0) %>%
+  dplyr::select(patient, biopsy, crypt, branch.length,x,SBS88_branch_positive, background_muts_branch_start_msa,background_muts_branch_end_msa,age_background_muts_branch_start_msa, age_background_muts_branch_end_msa,age)
+  
+## retrieve list of crypts that demonstrated at least one break point
+crypts_with_branch_point <- crypt_pileup_sig_annotated %>%
+  filter(branch_status%in%c('Second positive branch','Post cessation branch','Post cessation branch - Indeterminant')) %>%# subset those crypts that have at least one branch point
+  pull(unique(crypt))
+
+## get list of crypts with at cessation :
+crypts_demonstrating_cessation <- crypt_pileup_sig_annotated %>%
+  filter(branch_status%in%c('Post cessation branch')) %>%# subset those crypts that have at least one branch point
+  pull(unique(crypt))
+  
+```
+
+## c : run permutation analysis :
+```{r}
+N_PERM <- 1000
+set.seed(42)
+
+get_stat <- function(df) {
+  df %>%
+    filter(SBS88_branch_positive) %>%
+    filter(!(branch.length < 50 & x < 50)) %>% # exclude truncal branches (start & end < 50 muts)
+    #filter(round(age_background_muts_branch_end_msa, 3) != round(age, 3)) %>%           # exclude terminal branches
+    group_by(patient, biopsy, crypt) %>%
+    slice_min(age_background_muts_branch_start_msa, n = 1, with_ties = FALSE) %>%
+    ungroup() %>%
+    dplyr::select(patient, biopsy, crypt,
+           earliest_age_commencement = age_background_muts_branch_start_msa,
+           latest_age_commencement   = age_background_muts_branch_end_msa)
+}
+
+# Observed: per-crypt earliest/latest, then summarise to per-patient medians
+obs_df <- get_stat(permutation_analysis_dataframe[permutation_analysis_dataframe$crypt %in%crypts_with_branch_point,])
+
+get_patient_medians <- function(stat_df) {
+  stat_df %>%
+    group_by(patient) %>%
+    summarise(
+      median_earliest = median(earliest_age_commencement, na.rm = TRUE),
+      median_latest   = median(latest_age_commencement,   na.rm = TRUE),
+      .groups = "drop"
+    )
+}
+
+obs_medians <- get_patient_medians(obs_df)
+cat("Observed per-patient median earliest commencement ages:\n")
+print(obs_medians)
+
+N_PERM=1000
+perm_results <- lapply(seq_len(N_PERM), function(i) {
+  perm_data <- permutation_analysis_dataframe %>%
+    filter(crypt %in% crypts_demonstrating_cessation) %>%
+    group_by(crypt) %>%
+    mutate(SBS88_branch_positive = sample(SBS88_branch_positive)) %>%
+    ungroup()
+
+  perm_df <- tryCatch(get_stat(perm_data), error = function(e) NULL)
+  if (is.null(perm_df) || nrow(perm_df) == 0) return(NULL)
+ 
+  perm_df %>% mutate(perm = i)
+})
+
+perm_all <- bind_rows(perm_results)
+```
+
+## d : compare age of timepoints 
+```{r}
+earliest_ks_result <- ks.test(obs_df$earliest_age_commencement, perm_all$earliest_age_commencement, alternative = "greater")
+cat("\nKS test (observed earlier than null):\n")
+print(earliest_ks_result)
+```
+```{r}
+latest_ks_result <- ks.test(obs_df$latest_age_commencement, perm_all$latest_age_commencement, alternative = "greater")
+cat("\nKS test (observed earlier than null):\n")
+print(latest_ks_result)
+```
+## e : construct plots:
+### i : construct plot for distribution of earliest ages of commencement
+```{r}
+perm_all<-perm_all%>%select(-perm)%>%mutate(distribution='perm')
+obs_df<-obs_df%>%mutate(distribution='obs')
+combined_distribution<-rbind(perm_all,obs_df)
+
+earliest_dist_plt<-ggplot() +
+  stat_ecdf(data = combined_distribution, aes(x = earliest_age_commencement,colour=distribution), linewidth = 0.8) +
+  scale_colour_manual(breaks=c('obs','perm'),
+                      values=c('hotpink3','grey20'),
+                      labels=c('Observed Distribution','Permutation Null Distribution'))+
+  geom_vline(xintercept=median(combined_distribution[combined_distribution$distribution=='perm',]$earliest_age_commencement),
+             linetype='dashed',colour='grey20')+
+  geom_vline(xintercept=median(combined_distribution[combined_distribution$distribution=='obs',]$earliest_age_commencement),
+             linetype='dashed',colour='hotpink3')+
+  labs(
+    title = "Observed earliest age of commencement vs permutation null distribution",
+    x = "Age at earliest commencement of exposure (years)",
+    y = "Cumulative proportion",
+    colour='') +
+  geom_text(aes(x=10,y=0,label='Kolmogorov Smirnov P-value < 0.001'),colour='black',size=4,hjust=0)+
+  theme_classic()+
+   theme(axis.title=element_text(size=14,face='bold'),
+        legend.title=element_text(size=14,face='bold'),
+        axis.text=element_text(size=12),
+        legend.text=element_text(size=12),
+        title=element_text(size=14,face='bold'),
+        legend.position ='bottom'
+        )
+ggsave('../Supplementary_Figures/supplementary_figure_9_comparison_earliest_commencement_distribution.png',earliest_dist_plt,width=10,height=5,dpi=150)
+```
+
+### ii : construct plot for distribution of latest ages of commencement
+```{r}
+latest_dist_plt<-ggplot() +
+  stat_ecdf(data = combined_distribution, aes(x = latest_age_commencement,colour=distribution), linewidth = 0.8) +
+  scale_colour_manual(breaks=c('obs','perm'),
+                      values=c('hotpink3','grey20'),
+                      labels=c('Observed Distribution','Permutation Null Distribution'))+
+  geom_vline(xintercept=median(combined_distribution[combined_distribution$distribution=='perm',]$latest_age_commencement),
+             linetype='dashed',colour='grey20')+
+  geom_vline(xintercept=median(combined_distribution[combined_distribution$distribution=='obs',]$latest_age_commencement),
+             linetype='dashed',colour='hotpink3')+
+  labs(
+    title = "Observed latest age of commencement vs permutation null distribution",
+    x = "Age at latest possible commencement of exposure (years)",
+    y = "Cumulative proportion",
+    colour='') +
+  geom_text(aes(x=10,y=0,label='Kolmogorov Smirnov P-value < 0.001'),colour='black',size=4,hjust=0)+
+  theme_classic()+
+   theme(axis.title=element_text(size=14,face='bold'),
+        legend.title=element_text(size=14,face='bold'),
+        axis.text=element_text(size=12),
+        legend.text=element_text(size=12),
+        title=element_text(size=14,face='bold'),
+        legend.position ='bottom'
+        )
+ggsave('../Supplementary_Figures/supplementary_figure_9_comparison_latest_commencement_distribution.png',latest_dist_plt,width=10,height=5,dpi=150)
+```
+
+## f : permutation based analysis for sequence of continuing / cessation
+### i : list functions for this analysis
+```{r}
+crypt_permutation_timepoints<-crypt_pileup_sig_annotated%>%
+  filter(branch_status%in%c("Second positive branch","Post cessation branch"))%>%
+  mutate(timepoint=ifelse(branch_status=='Second positive branch','known_pos_timepoint','cessation_timepoint'),
+  age_timepoint=age_background_muts_branch_start_msa,
+  ypos=ifelse(timepoint=='known_pos_timepoint',1,-1))%>%
+  dplyr::select(patient,crypt, timepoint,age_timepoint,ypos)%>%
+  ungroup()
+
+# ── Plot function (reusable for observed and permuted) ──────────────────────
+
+plot_timepoints <- function(df, title = "Observed") {
+  ggplot(df, aes(x = age_timepoint, y = ypos, colour = timepoint)) +
+    geom_segment(aes(xend = age_timepoint, yend = 0),
+                 colour = "black", linewidth = 0.3) +
+    geom_point(size = 2) +
+    annotate("rect", xmin = -Inf, xmax = Inf, ymin = -0.05, ymax = 0.05,
+             fill = "grey80") +
+    scale_colour_manual(
+      breaks=c('known_pos_timepoint','cessation_timepoint'),
+      values = c("known_pos_timepoint" = "#2E8B57",
+                 "cessation_timepoint"     = "#FFA500"),
+      labels = c("Known Timepoint of Ongoing Exposure",
+                 "Latest Possible Cessation")
+    ) +
+    scale_y_continuous(limits = c(-1.3, 1.3), breaks = NULL) +
+    labs(x = "Estimate (years)", y = NULL, colour = NULL, title = title) +
+    theme_classic()+
+    theme(axis.title=element_text(size=14,face='bold'),
+        legend.title=element_text(size=14,face='bold'),
+        axis.text=element_text(size=12),
+        legend.text=element_text(size=12),
+        title=element_text(size=14,face='bold'),
+        legend.position ='bottom'
+        )
+}
+
+permute_df <- function(df) {
+  df %>%
+    mutate(
+      timepoint = sample(timepoint, size = n(), replace = FALSE),
+      ypos = if_else(timepoint == "known_pos_timepoint", 1, -1)
+    )
+}
+```
+
+### ii : run example and summaries for observed data :
+```{r}
+# ── Permutation: shuffle timepoint labels within each patient ───────────────
+# Permuting within patient preserves how many of each type each patient has
+unique_crypt_timepoints<-crypt_permutation_timepoints%>%filter(!duplicated(paste0(patient, timepoint,age_timepoint)))
+
+set.seed(42)
+null_df <- permute_df(unique_crypt_timepoints)
+
+# ── Side-by-side plots ───────────────────────────────────────────────────────
+
+p_obs  <- plot_timepoints(unique_crypt_timepoints,      title = "Observed")
+p_null <- plot_timepoints(null_df, title = "Null (example permutation)")
+
+p_obs / p_null +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+
+
+examples_plt <- (p_obs / p_null) +
+  plot_layout(guides = "collect", tag_level = "keep") &
+  theme(legend.position = "bottom")
+ggsave('../Supplementary_Figures/example_continuation_cessation_permutation.png',examples_plt,width=10,height=5,dpi=150)
+```
+
+### iii : run permutation :
+```{r}
+# ── Permutation test: is known_pos_timepoint significantly earlier? ──────────
+obs_stat <- median(unique_crypt_timepoints$age_timepoint[unique_crypt_timepoints$timepoint == "known_pos_timepoint"],na.rm=T) -
+            median(unique_crypt_timepoints$age_timepoint[unique_crypt_timepoints$timepoint == "cessation_timepoint"],na.rm=T)
+
+set.seed(42)
+N_PERM=10000
+perm_stats <- replicate(N_PERM, {
+  perm <- permute_df(unique_crypt_timepoints)
+  median(perm$age_timepoint[perm$timepoint == "known_pos_timepoint"],na.rm=T) -
+    median(perm$age_timepoint[perm$timepoint == "cessation_timepoint"],na.rm=T)
+})
+
+# One-tailed: observed known_pos is EARLIER (negative difference)
+p_value <- mean(perm_stats <= obs_stat)
+cat("Observed median difference:", round(obs_stat, 3), "years\n")
+cat("Permutation p-value:", round(p_value, 4), "\n")
+```
+
+### iv : create figure :
+```{r}
+perm_plot_df<-data.frame(stat = perm_stats) 
+cessation_continuation_plt<-ggplot(perm_plot_df,aes(x = stat)) +
+  geom_density(fill = "grey75", colour = "white") +
+  geom_vline(xintercept = obs_stat, colour = "hotpink3", linewidth = 1.2) +
+  annotate("text", x = obs_stat, y = Inf,
+           label = ifelse(p_value<0.001,paste0("  Observed\n  P < 0.001"),paste0("  Observed\n  P = ", signif(p_value, 1))),
+           hjust = 0, vjust = 1.5, colour = "hotpink3") +
+  labs(x = "Median (Timepoint of Continuation) − Median (Timepoint of Cessation) (years)",
+       y = "Count",
+       title='Observed Continuation Minus Cessation Timepoints Versus Permutations Null Distribution'
+       ) +
+    theme_classic()+
+   theme(axis.title=element_text(size=14,face='bold'),
+        legend.title=element_text(size=14,face='bold'),
+        axis.text=element_text(size=12),
+        legend.text=element_text(size=12),
+        title=element_text(size=14,face='bold'),
+        legend.position ='bottom'
+        )
+
+ggsave('../Supplementary_Figures/comparison_continuation_cessation_commencement.png',cessation_continuation_plt,width=10,height=5,dpi=150)
+```
+
+```{r}
+
+examples_plt <- (p_obs / p_null) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+
+combined_plt <-
+  (earliest_dist_plt /
+   latest_dist_plt /
+   examples_plt /
+   cessation_continuation_plt) +
+  plot_annotation(tag_levels = list(c("A", "B", "C", "D"))) &
+  theme(
+    plot.tag = element_text(face = "bold", size = 20),
+    plot.tag.position = c(0, 1)
+  )
+
+svglite::svglite('../Supplementary_Figures/supplementary_figure_9_timepoints_permutation_analysis.svg',height=20,width=15)
+combined_plt
+dev.off()
+```

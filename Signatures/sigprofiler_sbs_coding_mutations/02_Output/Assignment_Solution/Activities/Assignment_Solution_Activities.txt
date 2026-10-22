@@ -1,0 +1,7 @@
+Samples	SBS1	SBS5	SBS18	SBS88	SBS89
+All_mutations	206446	213247	95629	170631	0
+Essential_Splice	46	72	0	0	0
+Missense	2491	2490	0	0	0
+Nonsense	134	59	123	0	0
+Stop_loss	0	5	0	0	0
+Synonymous	1190	857	0	0	0

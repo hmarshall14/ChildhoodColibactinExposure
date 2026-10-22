@@ -1,182 +1,320 @@
 ---
 title: "Mutational Age Analysis"
-output: html_notebook
+output:
+  github_document:
+    toc: true
+    toc_depth: 3
 ---
-This notebook is used for the analysis of mutational age between colibactin positive and negative individuals. It describes the construction of Figure 2.A
-
-load libaries
-```{r}
-library(dplyr)
-library(tibble)
-library(ggplot2)
-library(stringr)
-library(lmerTest)
-library(tidyverse)
-library(broom.mixed)
+ 
+<!--
+Analysis code accompanying the manuscript.
+ 
+Compares mutational age between colibactin-positive and colibactin-negative
+individuals, and generates Figure 2A.
+ 
+Mutational age is defined here as a crypt's mutation burden divided by the
+age-related background accumulation rate for that colonic location, giving the
+chronological age at which that burden would be expected under background
+mutagenesis alone.
+ -->
+ 
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo       = TRUE,
+  message    = FALSE,
+  warning    = FALSE,
+  comment    = "#>",
+  fig.path   = "../Figures/",
+  fig.width  = 7,
+  fig.height = 4,
+  dpi        = 300
+)
+ 
+set.seed(42)
 ```
-
-load in crypt metadata, attributions and summary rates
-```{r}
-crypt_metadata<-read.csv('../Data/biopsy_metadata.csv')
-crypt_signature_attributions<-read.csv('../Data/crypt_signature_attributions.csv')
-background_summary_rates_df<-read.csv('../Data/background_mutation_rates.csv')
+ 
+## Dependencies
+ 
+```{r libraries}
+library(tidyverse)    # dplyr, tidyr, stringr, forcats, tibble, ggplot2
+library(lmerTest)     # linear mixed models with Satterthwaite p-values
+library(broom.mixed)  # tidy() for merMod objects
 ```
-
-# a : construct mutational age plot :
-## i  construct mutational age dataframe
-```{r}
-## create a dataframe for mutational age analysis
-mutational_age_df<-left_join(crypt_metadata,crypt_signature_attributions, by=c('patient','biopsy'))%>%
-  ungroup()%>%
-  # adjust all for sensitvity
-  mutate(across(starts_with('SBS'), ~.x / sensitivitySBS),
-         indel_total_burden = as.numeric(indel_total_burden) / sensitivityID)%>%
-  
-  # calculate per crypt totals for mutational signatures :
-  mutate(SBS=SBS1+SBS5+SBS18+SBS88+SBS89, ID=indel_total_burden)%>%
-  dplyr::select(patient, biopsy,cohort,crypt,location,site, SBS, ID, age,biopsy_colibactin_pos,biopsy_SBS89_ID25_pos) %>%
-  
-  # convert to longer format to facilitate plotting below
-  pivot_longer(cols=c("SBS", "ID"),names_to='mut_type',values_to='mutation')%>%
-  
-  # join with brackground rates to determine mutational age :
-  left_join(background_summary_rates_df,by=c('location','mut_type')) %>%
-  mutate(mutational_age=mutation / Estimate)
-
+ 
+## Data
+ 
+```{r paths}
+data_dir <- file.path("..", "Data")
+fig_dir  <- file.path("..", "Figure2/")
+ 
+if (!dir.exists(fig_dir)) dir.create(fig_dir, recursive = TRUE)
 ```
-
-### ii : construct dataframe for plotting mutational age
-```{r}
-## construct plot for mutational age
-plot_mutational_age<-mutational_age_df%>%
-  group_by(biopsy,mut_type) %>%
-  summarise(mutational_age=mean(mutational_age,na.rm=T),
-            mut_type=first(mut_type),
-            age    = min(age,na.rm=T),
-            site=dplyr::first(site),
-            cohort=first(cohort),
-            crypts = n(),
-            biopsy_colibactin_pos=any(biopsy_colibactin_pos),
-            biopsy_SBS89_ID25_pos=any(biopsy_SBS89_ID25_pos),
-            .groups = "drop"
+ 
+```{r load-data}
+crypt_metadata <- read.csv(file.path(data_dir, "biopsy_metadata.csv"))
+crypt_signature_attributions <- read.csv(file.path(data_dir, "crypt_signature_attributions.csv"))
+background_summary_rates_df <- read.csv(file.path(data_dir, "background_mutation_rates.csv"))
+```
+ 
+# A. Mutational age
+ 
+## A.i. Build the mutational age table
+ 
+Crypts are restricted to the large bowel and to those with an indel median VAF
+above 0.3, i.e. clonal samples in which the indel burden can be estimated
+reliably. Locations are collapsed into the three groups for which background
+rates were derived.
+ 
+ 
+```{r mutational-age-df}
+mutational_age_df <- left_join(
+    crypt_metadata, crypt_signature_attributions,
+    by = c("patient", "biopsy")
   ) %>%
-  
-  mutate(signature_anotation=case_when(biopsy_colibactin_pos==TRUE ~'colibactin_mutagenesis',
-                                      biopsy_SBS89_ID25_pos==TRUE ~ 'SBS89_ID25_mutagenesis', 
-                                      .default='only_background_mutagenesis'))%>%
-  
-  # to facilitate plot, turn Indels into negative numbers :
-  mutate(mutational_age=case_when(mut_type=='ID' ~ -1*mutational_age, TRUE ~ mutational_age))%>%
-
-  # format variables into relevant factors :
-  arrange(biopsy)%>%
-  mutate(mut_type=ifelse(str_detect(mut_type,'SBS'),'SBS','Indel'),
-         mut_type=factor(mut_type, levels=c('SBS','Indel')),
-         site=factor(site,levels=c('Left','Right')),
-         patient=factor(str_extract(biopsy,'PD\\d{5}')),
-         bar_end=mutational_age*1.05)
-  
-
-## create labels for x-axis
+  ungroup() %>%
+  filter(!location %in% c('Caecum','Rectum',"Terminal Ileum")) %>%
+  filter(indel_median_vaf > 0.3) %>%
+ 
+  # per-crypt totals for each mutation class, and collapsed location groups
+  mutate(
+    SBS = SBS1 + SBS5 + SBS18 + SBS88 + SBS89,
+    ID  = indel_total_burden,
+  ) %>%
+  dplyr::select(
+    patient, biopsy, cohort, sample, location, site, SBS, ID, age,
+    biopsy_colibactin_pos, biopsy_SBS89_ID83C_pos
+  ) %>%
+ 
+  # long format, one row per crypt per mutation class
+  pivot_longer(
+    cols      = c("SBS", "ID"),
+    names_to  = "mut_type",
+    values_to = "mutation"
+  ) %>%
+ 
+  # background rate for the matching location / mutation class
+  left_join(background_summary_rates_df, by = c("location", "mut_type")) %>%
+  mutate(mutational_age = mutation / Estimate)
+```
+ 
+## A.ii. Summarise to biopsy level for plotting
+ 
+```{r plot-data}
+plot_mutational_age <- mutational_age_df %>%
+  group_by(biopsy, mut_type) %>%
+  summarise(
+    mutational_age        = mean(mutational_age, na.rm = TRUE),
+    patient               = dplyr::first(patient),
+    age                   = min(age, na.rm = TRUE),
+    site                  = dplyr::first(site),
+    cohort                = dplyr::first(cohort),
+    crypts                = n(),
+    biopsy_colibactin_pos = any(biopsy_colibactin_pos),
+    biopsy_SBS89_ID83C_pos = any(biopsy_SBS89_ID83C_pos),
+    .groups               = "drop"
+  ) %>%
+ 
+  # mutational processes present, in order of precedence
+  mutate(
+    signature_annotation = case_when(
+      biopsy_colibactin_pos ~ "colibactin_mutagenesis",
+      biopsy_SBS89_ID83C_pos ~ "SBS89_ID83C_mutagenesis",
+      .default = "only_background_mutagenesis"
+    )
+  ) %>%
+ 
+  # indels are plotted downwards, so their values are negated and the y-axis
+  # is relabelled with abs() in the scale below
+  mutate(mutational_age = if_else(mut_type == "ID", -mutational_age, mutational_age)) %>%
+ 
+  # factor levels controlling facet and axis order
+  arrange(biopsy) %>%
+  mutate(
+    mut_type = factor(if_else(mut_type == "SBS", "SBS", "Indel"),
+                      levels = c("SBS", "Indel")),
+    site     = factor(site, levels = c("Left", "Right")),
+    patient  = factor(patient)
+  )
+```
+ 
+X-axis labels: biopsies are ordered by donor age, and a tick is labelled only
+where the age changes, to avoid overplotting repeated ages.
+ 
+```{r axis-labels}
 age_labs <- mutational_age_df %>%
   distinct(biopsy, age, site) %>%
   arrange(site, age) %>%
-  mutate(age=round(age,digits=0), 
-         age_label = ifelse(age != lag(age), age, ""),
-         age_label = replace_na(age_label, "2")) %>%
+  mutate(
+    age       = round(age, digits = 0),
+    age_label = if_else(is.na(lag(age)) | age != lag(age), as.character(age), "")
+  ) %>%
   arrange(age)
-
+ 
 age_labels <- setNames(age_labs$age_label, age_labs$biopsy)
 age_labels <- age_labels[age_labels != ""]
 age_breaks <- names(age_labels)
 ```
+ 
+## A.iii. Figure 2A
 
-### iii Figure 2.A : Mutational Age
-```{r}
-
-## plot the mutational age:
-svg("~/mutational_age_colibactin_frequency.svg", width = 16, height = 8, bg = "transparent")
-
-ggplot(plot_mutational_age, aes(y = mutational_age, x = fct_reorder(biopsy, age), fill = signature_anotation)) +
-  
-  # plot annotation for cohort : 
- geom_point(data=plot_mutational_age[plot_mutational_age$mut_type=='SBS',],aes(fct_reorder(biopsy, age),y=-1.5,shape = cohort), colour = "black",size=2)+
-  geom_point(data=plot_mutational_age[plot_mutational_age$mut_type=='Indel',],aes(fct_reorder(biopsy, age),y=5,shape = cohort), colour = "black",size=2)+
-  
-  # plot bars for mutational age
+```{r fig2a-mutational-age, fig.width = 16, fig.height = 8}
+# y positions of the cohort annotation points, just outside the bar range in
+# each facet (SBS bars are positive, indel bars negative)
+cohort_point_y <- c(SBS = -1.5, Indel = 5)
+ 
+fig2a <- ggplot(
+    plot_mutational_age,
+    aes(x = fct_reorder(biopsy, age), y = mutational_age, fill = signature_annotation)
+  ) +
+ 
+  # cohort annotation, one point per biopsy in each facet row
+  geom_point(
+    data = filter(plot_mutational_age, mut_type == "SBS"),
+    aes(y = cohort_point_y[["SBS"]], shape = cohort),
+    colour = "black", size = 2
+  ) +
+  geom_point(
+    data = filter(plot_mutational_age, mut_type == "Indel"),
+    aes(y = cohort_point_y[["Indel"]], shape = cohort),
+    colour = "black", size = 2
+  ) +
+ 
   geom_bar(stat = "identity", width = 0.7) +
-  
-  # facet by location and by mutation typer
-  facet_grid(mut_type ~ site, scales = "free", space = "free_x", switch = "y", 
-             labeller = labeller(mut_type = as_labeller(c(Indel = "ID 'Mutational Age' [years]", SBS = "SBS 'Mutational Age' [years]")),
-      site = as_labeller(c(Right = "Colon Right Side",Left='Colon Left Side')))) +
-  
-  # stipulate scales :
+ 
+  facet_grid(
+    mut_type ~ site,
+    scales = "free", space = "free_x", switch = "y",
+    labeller = labeller(
+      mut_type = as_labeller(c(
+        Indel = "ID 'Mutational Age' [years]",
+        SBS   = "SBS 'Mutational Age' [years]"
+      )),
+      site = as_labeller(c(
+        Left  = "Colon Left Side",
+        Right = "Colon Right Side"
+      ))
+    )
+  ) +
+ 
   scale_y_continuous(labels = abs) +
   scale_x_discrete(breaks = age_breaks, labels = age_labels) +
-  scale_shape_manual(breaks=c('Normal','IBD'), values=c(NA,1), labels=c('','Inflammatory Bowel Disease'))+
+  scale_shape_manual(
+    breaks = c("Normal", "IBD"),
+    values = c(Normal = NA, IBD = 1),
+    labels = c("", "Inflammatory Bowel Disease")
+  ) +
   scale_fill_manual(
-    breaks = c("colibactin_mutagenesis", "SBS89_ID25_mutagenesis", "only_background_mutagenesis"),
-    values = c("hotpink3", "#5cdf02ff", "grey70"),
-    labels = c("Colibactin Mutagenesis", "ID25 / SBS89 Mutagenesis", "Only Background Mutagenesis")
+    breaks = c("colibactin_mutagenesis", "SBS89_ID83C_mutagenesis", "only_background_mutagenesis"),
+    values = c("maroon3", "#5cdf02ff", "bisque3"),
+    labels = c("Colibactin Mutagenesis", "SBS89 / ID83C Mutagenesis", "Only Background Mutagenesis")
   ) +
-  
-  # stipulate labels :
-  labs(x = "Chronological Age of Donor at Time of Biopsy Acquisition [years]",
-    fill = "Mutational Processes Present",
-    shape=''
+ 
+  labs(
+    x     = "Chronological Age of Donor at Time of Biopsy Acquisition [years]",
+    fill  = "Mutational Processes Present",
+    shape = ""
   ) +
-  
-  # format plot 
+ 
   theme_classic() +
   theme(
-    axis.text = element_text(size = 14.5, vjust = 0.5, hjust = 0.5),
-    axis.title.x = element_text(size = 18, face = "bold"),
-    axis.title.y = element_blank(),
-    strip.background = element_blank(),
+    axis.text         = element_text(size = 14.5, vjust = 0.5, hjust = 0.5),
+    axis.title.x      = element_text(size = 18, face = "bold"),
+    axis.title.y      = element_blank(),
+    strip.background  = element_blank(),
     strip.placement.y = "outside",
     strip.placement.x = "inside",
-    panel.spacing.x = unit(0.9, "cm"),
-    panel.spacing.y = unit(0, "cm"),
-    legend.position = "bottom",
-    strip.text.x = element_text(size = 18, face = "bold"),
-    strip.text.y = element_text(size = 16, face = "bold"),
-    legend.title = element_text(size = 14, face = "bold"),
-    legend.text = element_text(size = 14, face = "bold"))
-
-dev.off()
+    panel.spacing.x   = grid::unit(0.9, "cm"),
+    panel.spacing.y   = grid::unit(0, "cm"),
+    legend.position   = "bottom",
+    strip.text.x      = element_text(size = 18, face = "bold"),
+    strip.text.y      = element_text(size = 16, face = "bold"),
+    legend.title      = element_text(size = 14, face = "bold"),
+    legend.text       = element_text(size = 14, face = "bold")
+  )
+ 
+fig2a
+ 
+ggsave(
+  file.path(fig_dir, "mutational_age_colibactin_frequency.svg"),
+  fig2a,
+  width = 16, height = 8, bg = "transparent"
+)
 ```
-### iv : perform comparisons of mutational age:
-```{r}
-## create dataframe for comparison
-compare_mutation_age_df<-mutational_age_df%>%
-  select(-mutation, -Estimate)%>%
-  pivot_wider(names_from=mut_type,values_from=mutational_age)
-
-# compare sbs and id mutational ages for left colon :
-left_sbs_mut_age_ml=summary(lmer(SBS~biopsy_colibactin_pos+(1|cohort)+(1|patient),data=compare_mutation_age_df[compare_mutation_age_df$site=='Left',]))$coefficients
-left_id_mut_age_ml=summary(lmer(ID~biopsy_colibactin_pos+(1|cohort)+(1|patient),data=compare_mutation_age_df[compare_mutation_age_df$site=='Left',]))$coefficients
-
-# compare sbs and id mutational ages for right colon :
-right_sbs_mut_age_ml=summary(lmer(SBS~biopsy_colibactin_pos+(1|cohort)+(1|patient),data=compare_mutation_age_df[compare_mutation_age_df$site=='Right',]))$coefficients
-right_id_mut_age_ml=summary(lmer(ID~biopsy_colibactin_pos+(1|cohort)+(1|patient),data=compare_mutation_age_df[compare_mutation_age_df$site=='Right',]))$coefficients
-
-
-## print the model outputs
-print(paste0('Left SBS mutational age : ', round(left_sbs_mut_age_ml[2],digits=0), ' [', round(left_sbs_mut_age_ml[2]-1.96*left_sbs_mut_age_ml[4],digits=0),', ', round(left_sbs_mut_age_ml[2]+1.96*left_sbs_mut_age_ml[4],digits=0),']'))
-
-print(paste0('Left ID mutational age : ', round(left_id_mut_age_ml[2],digits=0), ' [', round(left_id_mut_age_ml[2]-1.96*left_id_mut_age_ml[4],digits=1),', ', round(left_id_mut_age_ml[2]+1.96*left_id_mut_age_ml[4],digits=0),']'))
-
-
-print(paste0('Right SBS mutational age : ', round(right_sbs_mut_age_ml[2],digits=0), ' [', round(right_sbs_mut_age_ml[2]-1.96*right_sbs_mut_age_ml[4],digits=0),', ', round(right_sbs_mut_age_ml[2]+1.96*right_sbs_mut_age_ml[4],digits=0),']'))
-
-print(paste0('Right ID mutational age : ',round(right_id_mut_age_ml[2],digits=0), ' [', round(right_id_mut_age_ml[2]-1.96*right_id_mut_age_ml[4],digits=0),', ', round(right_id_mut_age_ml[2]+1.96*right_id_mut_age_ml[4],digits=0),']'))
+ 
+## A.iv. Comparison of mutational age by colibactin status
+ 
+Mutational age is compared between colibactin-positive and colibactin-negative
+biopsies, separately for each colonic side and each mutation class, with random
+intercepts for patient and cohort.
+ 
+```{r comparison-data}
+compare_mutation_age_df <- mutational_age_df %>%
+  # keep only the columns needed to identify a crypt, so that the join with the
+  # background rates cannot introduce extra columns and break pivot_wider
+  dplyr::select(
+    patient, biopsy, sample, cohort, site, age,
+    biopsy_colibactin_pos, mut_type, mutational_age
+  ) %>%
+  pivot_wider(names_from = mut_type, values_from = mutational_age)
 ```
-
-### iii : mutational ages for PD69095 and PD68018 :
-```{r}
-plot_mutational_age%>%
-  mutate(mutational_age=abs(mutational_age))%>%
-  filter(str_detect(biopsy, 'PD69095|PD68018'))%>%
-  select(biopsy, site, age, mut_type,mutational_age)
+ 
+```{r comparison-models}
+# Fit one model per side x mutation class and return the colibactin effect with
+# a Wald 95% confidence interval. Coefficients are extracted by name rather
+# than by position.
+fit_mutational_age_model <- function(side, response, data) {
+  model_formula <- reformulate(
+    c("biopsy_colibactin_pos", "(1 | cohort)", "(1 | patient)"),
+    response = response
+  )
+ 
+  model <- lmer(model_formula, data = filter(data, site == side))
+ 
+  tidy(model, effects = "fixed") %>%
+    filter(startsWith(term, "biopsy_colibactin_pos")) %>%
+    transmute(
+      site      = side,
+      mut_type  = response,
+      estimate  = round(estimate,0),
+      low_ci    = round(estimate - 1.96 * std.error,0),
+      upp_ci    = round(estimate + 1.96 * std.error,0),
+      p.value   = round(p.value,3)
+    )
+}
+ 
+mutational_age_results <- expand_grid(
+    side     = c("Left", "Right"),
+    response = c("SBS", "ID")
+  ) %>%
+  pmap_dfr(function(side, response) {fit_mutational_age_model(side, response, compare_mutation_age_df) })
+ 
+mutational_age_results
+```
+ 
+```{r comparison-summary}
+mutational_age_results %>%
+  mutate(
+    summary = sprintf(
+      "%s %s mutational age: %.0f [%.0f, %.0f] years, P = %s",
+      site, mut_type, estimate, low_ci, upp_ci, format.pval(p.value, digits = 3)
+    )
+  ) %>%
+  pull(summary) %>%
+  walk(~ cat(.x, "\n"))
+```
+ 
+## A.v. Mutational ages for PD69095 and PD68018
+ 
+```{r example-donors}
+plot_mutational_age %>%
+  filter(str_detect(biopsy, "PD69095|PD68018")) %>%
+  mutate(mutational_age = round(abs(mutational_age),0)) %>%
+  dplyr::select(biopsy, site, age, mut_type, mutational_age) %>%
+  arrange(biopsy, mut_type)
+```
+ 
+# Session information
+ 
+```{r session-info}
+sessionInfo()
 ```

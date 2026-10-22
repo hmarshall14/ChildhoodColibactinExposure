@@ -1,0 +1,797 @@
+---
+title: "SBS88 Detection Limits in Simulated Phylogenetic Branches"
+output:
+  github_document:
+    toc: true
+    toc_depth: 3
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  message = TRUE,
+  warning = TRUE,
+  comment = "#>"
+)
+```
+
+Models the probability of recovering SBS88 from a simulated branch as a
+function of background mutation burden and SBS88 proportion, then
+reparameterises that model in terms of branch duration and colibactin
+intensity.
+
+Three figures are produced:
+
+| File | Question |
+|---|---|
+| `01_detection_limit.png` | Minimum detectable SBS88, relative and absolute, against background burden |
+| `02_min_intensity_by_duration.png` | Minimum colibactin intensity against branch duration |
+| `03_minimum_sbs88_proportion_by_background_mutations.png` | As `01a`, overlaid with the observed paediatric branches |
+
+## Setup
+
+```{r libraries}
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(tidyr)
+  library(ggplot2)
+  library(scales)
+  library(ggnewscale)
+  library(mgcv)
+  library(patchwork)
+})
+
+set.seed(42)
+```
+
+### Configuration
+
+Set `dataset` to `"pruned"` or `"unpruned"`. Everything downstream — input
+file, column handling and output directory — follows from this one switch, so
+the two runs write to separate folders and cannot overwrite each other.
+
+```{r config}
+dataset <- "unpruned"          # <-- "pruned" or "unpruned"
+
+stopifnot(dataset %in% c("pruned", "unpruned"))
+
+# Background (SBS1+SBS5+SBS18) mutations per year in a single crypt lineage
+background_rate <- 38
+
+# Detection probabilities to report. 1 - sqrt(0.05) is the per-branch
+# probability giving a 5% joint false-negative rate across two branches.
+targets <- c(1 - sqrt(0.05), 0.9)
+ 
+fn_levels <- c("1% False Negative", "5% False Negative", "25% False Negative")
+fn5_target <- 1 - sqrt(0.05)       # 0.7764
+
+fn_label <- function(target) {
+  factor(sprintf("%.0f%% False Negative", 100 * (1 - target)^2), levels = fn_levels)
+}
+ 
+
+n_draws <- 2000   # posterior draws for confidence intervals
+grid_n  <- 200    # grid resolution per axis
+
+in_dir  <- "/Users/hm14/volumes/hm14_lustre/team267/users/hm14/paediatric_colon_project/mutational_signatures/msa_dir/MSA/output_tables/branches_rate_SBS88/"
+crypt_pileup_dir <- "/Users/hm14/Documents/GitHub/ChildhoodColibactinExposure/Data/"
+ground_truth_dir <- '/Users/hm14/volumes/hm14_lustre/team267/users/hm14/paediatric_colon_project/mutational_signatures/simulation_variation_sbs88/01_Input/'
+out_dir <- file.path("/Users/hm14/Documents/modelling_colibactin_intensity/", paste0(dataset, "_attribution"))
+dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+message("Dataset: ", dataset, " -> ", out_dir)
+```
+
+### Input files
+
+```{r input-paths}
+sim_inputs <- list(
+  pruned = list(
+    file       = file.path(in_dir, "pruned_attribution_branches_rate_SBS88_SBS_abs_mutations.csv"),
+    sample_col = "X",
+    # Pruned table reports absolute mutation counts
+    relative   = FALSE
+  ),
+  unpruned = list(
+    file       = file.path(in_dir, "output_branches_rate_SBS88_SBS_weights_table.csv"),
+    sample_col = "Sample",
+    # Weights table reports fractions; rescale by the ground-truth total
+    relative   = TRUE 
+  )
+)
+
+cfg <- sim_inputs[[dataset]]
+```
+
+```{r load-data}
+ground_truth <- read.table(
+  file.path(ground_truth_dir, "ground_truth_exposures_branches_rate_SBS88.txt"),
+  sep = "\t", header = TRUE
+) %>%
+  # Ground-truth file stores signature fractions; convert to mutation counts
+  mutate(across(contains("SBS"), ~ .x * burdens))
+
+attribution <- read.csv(cfg$file)
+```
+
+
+
+
+### Build the simulation dataframe
+
+One function for both inputs, producing identical column names
+(`*_called` vs `*_ground_truth`) whichever dataset is selected. The original
+script named the unpruned background column `SBSbackground_pruned`, which was
+a copy-paste artefact.
+
+```{r prepare-sim-df}
+prepare_sim_df <- function(attribution, ground_truth, sample_col, relative,
+                           background_rate) {
+
+  out <- attribution %>%
+    dplyr::rename(sample = all_of(sample_col)) %>%
+    left_join(ground_truth, by = "sample", suffix = c("_called", "_ground_truth"))
+
+  if (relative) {
+    out <- out %>%
+      mutate(across(
+        ends_with("_called"),
+        ~ .x * (SBS1_ground_truth + SBS5_ground_truth +
+                SBS18_ground_truth + SBS88_ground_truth)
+      ))
+  }
+
+  out %>%
+    mutate(
+      SBSbackground_called       = SBS1_called + SBS5_called + SBS18_called,
+      SBSbackground_ground_truth = SBS1_ground_truth + SBS5_ground_truth + SBS18_ground_truth,
+      class = case_when(
+        SBS88_called >  0 & SBS88_ground_truth >  0 ~ "TP",
+        SBS88_called == 0 & SBS88_ground_truth >  0 ~ "FN",
+        SBS88_called == 0 & SBS88_ground_truth == 0 ~ "TN",
+        TRUE                                        ~ "FP"
+      ),
+      sample_age = SBSbackground_ground_truth / background_rate,
+      # CHECK THIS. If SBS1+SBS5+SBS18+SBS88 already sums to `burdens` (which the
+      # rescaling above implies), the fraction of the total is SBS88 / burdens,
+      # not SBS88 / (burdens + SBS88). See the note in the README.
+      SBS88_ground_truth_proportion = SBS88_ground_truth / (burdens + SBS88_ground_truth),
+      SBS88_rate = SBS88_ground_truth / sample_age
+    )
+}
+
+sim_df <- prepare_sim_df(
+  attribution, ground_truth,
+  sample_col      = cfg$sample_col,
+  relative        = cfg$relative,
+  background_rate = background_rate
+)
+
+dplyr::count(sim_df, class)
+```
+
+## Detection model
+
+### Prepare the modelling frame
+
+```{r model-frame}
+dat <- sim_df %>%
+  transmute(
+    class  = as.character(class),
+    burden = as.numeric(SBSbackground_ground_truth),
+    prop   = as.numeric(SBS88_ground_truth_proportion)
+  )
+
+if (max(dat$prop, na.rm = TRUE) > 1.001) {
+  stop("SBS88 proportion exceeds 1 - check the denominator in `prepare_sim_df`.")
+}
+
+negatives <- dat %>% filter(class %in% c("TN", "FP"))
+fp_rate   <- mean(negatives$class == "FP")
+
+pos <- dat %>%
+  filter(class %in% c("TP", "FN"), burden > 0, prop > 0) %>%
+  mutate(
+    detected   = as.integer(class == "TP"),
+    log_burden = log10(burden),
+    log_prop   = log10(prop),
+    # burden is background-only, so total = background / (1 - prop)
+    n_sbs88    = burden * prop / (1 - prop)
+  )
+
+message(sprintf("Negatives: %d (FP rate %.4f) | Positives: %d (detected %d, missed %d)",
+                nrow(negatives), fp_rate, nrow(pos),
+                sum(pos$detected), sum(!pos$detected)))
+```
+
+### Fit and select
+
+```{r fit-models}
+# Tensor smooth; k kept modest because the transition is informed by a small
+# number of missed samples.
+m_gam <- gam(detected ~ te(log_burden, log_prop, k = c(5, 5)),
+             family = binomial, data = pos, method = "REML")
+
+# Parametric counterpart: closed-form, quotable, and a guard against the GAM
+# chasing noise.
+m_glm <- gam(detected ~ log_burden + log_prop,
+             family = binomial, data = pos, method = "REML")
+
+cat(sprintf("AIC: GAM %.1f, linear %.1f (lower is better)\n", AIC(m_gam), AIC(m_glm)))
+
+# Use the simpler model unless the smooth earns its complexity
+use_gam     <- AIC(m_gam) < AIC(m_glm) - 2
+model       <- if (use_gam) m_gam else m_glm
+model_label <- if (use_gam) "GAM (tensor smooth)" else "logistic, linear in log-log"
+message("Using: ", model_label)
+
+cf <- coef(m_glm)
+message(sprintf("Linear model: logit(P) = %.3f + %.3f*log10(burden) + %.3f*log10(prop)",
+                cf[1], cf[2], cf[3]))
+message(sprintf("  => P=0.5 limit: prop = %.4g * burden^%.3f",
+                10^(-cf[1] / cf[3]), -cf[2] / cf[3]))
+```
+
+### Calibration check
+
+The figures below are meaningless if the model does not reproduce the data it
+was fitted to. Bins are equal-count on the **linear predictor**: most samples
+sit at P ~ 1, so probability quantiles collapse to duplicate cut points and
+hide the transition.
+
+```{r calibration}
+wilson <- function(k, n, z = 1.96) {
+  p <- k / n; d <- 1 + z^2 / n
+  half <- z * sqrt(p * (1 - p) / n + z^2 / (4 * n^2))
+  c((p + z^2 / (2 * n) - half) / d, (p + z^2 / (2 * n) + half) / d)
+}
+
+pos <- pos %>%
+  mutate(
+    fitted = as.numeric(predict(model, newdata = ., type = "response")),
+    eta    = as.numeric(predict(model, newdata = ., type = "link"))
+  )
+
+calib <- pos %>%
+  mutate(bin = ntile(eta, 12)) %>%
+  group_by(bin) %>%
+  summarise(n = n(), k = sum(detected),
+            expected = mean(fitted), observed = mean(detected), .groups = "drop") %>%
+  rowwise() %>%
+  mutate(lower = wilson(k, n)[1], upper = wilson(k, n)[2]) %>%
+  ungroup() %>%
+  mutate(outside = expected < lower | expected > upper)
+
+print(as.data.frame(calib), row.names = FALSE, digits = 3)
+
+cat(sprintf("\nOverall: %d missed, %.1f expected by the model\n",
+            sum(!pos$detected), sum(1 - pos$fitted)))
+
+high_conf   <- pos$fitted > 0.95
+unexplained <- sum(high_conf & pos$detected == 0)
+cat(sprintf("Misses at fitted P > 0.95: %d (model expects %.1f)\n",
+            unexplained, sum(1 - pos$fitted[high_conf])))
+
+if (unexplained > 3 * sum(1 - pos$fitted[high_conf])) {
+  warning("Substantial detection failures in the high-confidence region. The ",
+          "covariates do not explain all false negatives - consider a floor term ",
+          "before quoting the limits.")
+}
+```
+
+## Figure 01: detection limit against background burden
+
+Posterior draws over a 2D grid, then the SBS88 level at which each target
+detection probability is crossed.
+
+```{r posterior-grid}
+beta_hat   <- coef(model)
+beta_draws <- mgcv::rmvn(n_draws, beta_hat, vcov(model))
+
+burden_grid <- 10^seq(log10(min(pos$burden)), log10(max(pos$burden)), length.out = grid_n)
+prop_grid   <- 10^seq(log10(min(pos$prop)),   log10(max(pos$prop)),   length.out = grid_n)
+
+pred_grid <- expand.grid(log_burden = log10(burden_grid), log_prop = log10(prop_grid)) %>%
+  mutate(burden = 10^log_burden, prop = 10^log_prop)
+
+Xp      <- predict(model, newdata = pred_grid, type = "lpmatrix")
+p_draws <- plogis(Xp %*% t(beta_draws))   # grid rows x draws
+```
+
+```{r detection-limits}
+# Named `crossing_point` so it does not mask tidyr::crossing.
+# cummax enforces monotonicity against numerical wobble.
+crossing_point <- function(p, x_log, target) {
+  if (all(p < target) || all(p > target)) return(NA_real_)
+  approx(cummax(p), x_log, xout = target, ties = "ordered")$y
+}
+
+burden_index <- split(seq_len(nrow(pred_grid)), pred_grid$log_burden)
+
+limits <- lapply(targets, function(tg) {
+  out <- vapply(burden_index, function(idx) {
+    idx <- idx[order(pred_grid$log_prop[idx])]
+    vapply(seq_len(n_draws),
+           function(d) crossing_point(p_draws[idx, d], pred_grid$log_prop[idx], tg),
+           numeric(1))
+  }, numeric(n_draws))
+  data.frame(
+    target = tg,
+    burden = 10^as.numeric(names(burden_index)),
+    fit    = 10^apply(out, 2, median,   na.rm = TRUE),
+    lower  = 10^apply(out, 2, quantile, 0.025, na.rm = TRUE),
+    upper  = 10^apply(out, 2, quantile, 0.975, na.rm = TRUE),
+    n_na   = apply(out, 2, function(x) mean(is.na(x)))
+  )
+}) %>%
+  bind_rows() %>%
+  # Drop burdens where the target is unreachable in most draws
+  filter(n_na < 0.1) %>%
+  mutate(
+    n_sbs88       = burden * fit   / (1 - fit),
+    n_sbs88_lower = burden * lower / (1 - lower),
+    n_sbs88_upper = burden * upper / (1 - upper),
+    target_label  = sprintf("%d%% detection", round(target * 100))
+  )
+
+if (min(limits$n_sbs88, na.rm = TRUE) < 1) {
+  warning("Fitted limit implies fewer than one SBS88 mutation - check the ",
+          "proportion denominator.")
+}
+```
+
+## Figure 01: detection limit against background burden
+ 
+Posterior draws over a 2D grid, then the SBS88 level at which each target
+detection probability is crossed.
+ 
+### Numeric inversion
+ 
+All three figures invert the same fitted surface: hold one quantity fixed,
+sweep the other, find where P(detect) crosses a target. Doing this on a grid
+rather than in closed form means it works for the GAM as well as the linear
+model, so no figure depends on which one AIC selects.
+ 
+```{r inversion-helpers}
+beta_draws <- mgcv::rmvn(n_draws, coef(model), vcov(model))
+ 
+# P(detect) per posterior draw: rows = newdata rows, cols = draws
+p_draws_for <- function(newdata) {
+  plogis(predict(model, newdata = newdata, type = "lpmatrix") %*% t(beta_draws))
+}
+ 
+# Named `crossing_point` so it does not mask tidyr::crossing.
+# cummax enforces monotonicity against numerical wobble.
+crossing_point <- function(p, x_log, target) {
+  if (all(p < target) || all(p > target)) return(NA_real_)
+  approx(cummax(p), x_log, xout = target, ties = "ordered")$y
+}
+ 
+# For each value in `fixed_grid`, sweep `solve_grid` and locate the crossing.
+# `covariates(fixed, solve_grid)` builds the model's newdata.
+invert_detection <- function(fixed_grid, solve_grid, covariates, target) {
+  draws <- vapply(fixed_grid, function(v) {
+    P <- p_draws_for(covariates(v, solve_grid))
+    vapply(seq_len(n_draws),
+           function(d) crossing_point(P[, d], log10(solve_grid), target),
+           numeric(1))
+  }, numeric(n_draws))
+ 
+  data.frame(
+    target = target,
+    fixed  = fixed_grid,
+    fit    = 10^apply(draws, 2, median,   na.rm = TRUE),
+    lower  = 10^apply(draws, 2, quantile, 0.025, na.rm = TRUE),
+    upper  = 10^apply(draws, 2, quantile, 0.975, na.rm = TRUE),
+    n_na   = apply(draws, 2, function(x) mean(is.na(x)))
+  )
+}
+ 
+# --- Covariate maps -----------------------------------------------------------
+# For a branch of duration dt, background accruing at r per year and SBS88 at
+# intensity lambda:  burden = r * dt,  prop = lambda / (r + lambda).
+ 
+cov_prop <- function(burden, prop_grid) {              # solve for proportion
+  data.frame(log_burden = log10(burden), log_prop = log10(prop_grid))
+}
+ 
+cov_burden <- function(prop, burden_grid) {            # solve for burden
+  data.frame(log_burden = log10(burden_grid), log_prop = log10(prop))
+}
+ 
+cov_intensity <- function(duration, intensity_grid) {  # solve for intensity
+  data.frame(
+    log_burden = log10(background_rate * duration),
+    log_prop   = log10(intensity_grid / (background_rate + intensity_grid))
+  )
+}
+ 
+cov_duration <- function(intensity, duration_grid) {   # solve for duration
+  data.frame(
+    log_burden = log10(background_rate * duration_grid),
+    log_prop   = log10(intensity / (background_rate + intensity))
+  )
+}
+ 
+# Anything outside these ranges is extrapolation. A tensor smooth extrapolates
+# far less gracefully than a linear model, so this matters more when use_gam.
+fit_burden_range <- range(pos$burden)
+fit_prop_range   <- range(pos$prop)
+ 
+warn_if_outside <- function(x, rng, what) {
+  if (min(x) < rng[1] || max(x) > rng[2]) {
+    warning(sprintf("%s grid spans %.3g-%.3g; model fitted over %.3g-%.3g.%s",
+                    what, min(x), max(x), rng[1], rng[2],
+                    if (use_gam) " The GAM extrapolates unreliably." else ""))
+  }
+}
+```
+ 
+```{r detection-limits}
+burden_grid <- 10^seq(log10(fit_burden_range[1]), log10(fit_burden_range[2]),
+                      length.out = grid_n)
+prop_grid   <- 10^seq(log10(fit_prop_range[1]), log10(fit_prop_range[2]),
+                      length.out = grid_n)
+ 
+limits <- lapply(targets, function(tg)
+  invert_detection(burden_grid, prop_grid, cov_prop, tg)) %>%
+  bind_rows() %>%
+  dplyr::rename(burden = fixed) %>%
+  # Drop burdens where the target is unreachable in most draws
+  filter(n_na < 0.1) %>%
+  mutate(
+    n_sbs88         = burden * fit   / (1 - fit),
+    n_sbs88_lower   = burden * lower / (1 - lower),
+    n_sbs88_upper   = burden * upper / (1 - upper),
+    fn_target_label = fn_label(target)
+  )
+ 
+if (min(limits$n_sbs88, na.rm = TRUE) < 1) {
+  warning("Fitted limit implies fewer than one SBS88 mutation - check the ",
+          "proportion denominator.")
+}
+```
+ 
+```{r fig-01, fig.width = 11, fig.height = 4.5}
+# Shared legend labelling for all three figures
+
+p1 <- ggplot(limits, aes(burden, fit,
+                          colour = fn_target_label,
+                          fill = fn_target_label)) +
+  
+  scale_x_log10(limits = c(30, 500)) +
+  scale_y_log10(labels = percent, limits = c(0.01, 0.5)) +
+  labs(
+    x = "Background mutation burden (ground truth)",
+    y = "SBS88 proportion (ground truth)",
+    colour = NULL,
+    fill = NULL,
+    title = paste0("MSA attribution - ", dataset)
+  ) +
+
+
+  geom_point(
+    data = sim_df,
+    aes(x = SBSbackground_ground_truth, y = SBS88_ground_truth_proportion, colour = class), size=3,inherit.aes = FALSE) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.5, colour = NA) +
+  geom_line(linewidth = 0.9,aes(colour = fn_target_label)) +
+  
+  scale_colour_manual(
+    name = "Classification",
+    breaks = c("1% False Negative", "5% False Negative",
+               "FN", "FP", "TN", "TP"),
+    labels = c("1% False Negative", "5% False Negative",
+               "False Negative", "False Positive",
+               "True Negative", "True Positive"),
+    values = c(
+      "1% False Negative" = "#F8766D",
+      "5% False Negative" = "#00BFC4",
+      "FN" = "skyblue2",
+      "FP" = "firebrick4",
+      "TN" = "grey80",
+      "TP" = "black"
+    )
+  )+ 
+  theme_classic()+
+  theme(legend.position='none',
+      title=element_text(size=16,face='bold'),
+      axis.title=element_text(size=16,face='bold'),
+      axis.text=element_text(size=14),
+      legend.text=element_text(size=14))
+
+```
+ 
+Scaling of the absolute limit: if detection is Poisson-noise limited, the
+number of SBS88 mutations needed grows as `sqrt(burden)`, i.e. an exponent of
+0.5.
+ 
+```{r limits-coverage}
+# How much of each target's curve survived the `n_na` filter? A target whose
+# crossing falls outside the prop grid at every burden is dropped entirely.
+limits %>%
+  group_by(target) %>%
+  summarise(
+    n_burdens = n(),
+    unusable  = sum(!is.finite(log10(n_sbs88))),
+    fit_min   = min(fit), fit_max = max(fit),
+    .groups = "drop"
+  )
+ 
+dropped <- setdiff(targets, unique(limits$target))
+if (length(dropped)) {
+  warning("No reachable limits for target(s): ", paste(dropped, collapse = ", "),
+          ". Widen `prop_grid` or relax the `n_na` threshold.")
+}
+```
+ 
+```{r scaling-absolute}
+# Iterate over the targets actually present, not the requested ones, and keep
+# only rows where log10() is defined. `fit` >= 1 makes burden*fit/(1-fit)
+# negative, and log10 of that is NaN.
+fit_scaling <- function(sub, tg) {
+  sub <- sub %>% filter(is.finite(log10(n_sbs88)), is.finite(log10(burden)))
+ 
+  if (nrow(sub) < 3) {
+    cat(sprintf("  %2d%% detection: skipped, only %d usable burden(s)\n",
+                round(tg * 100), nrow(sub)))
+    return(invisible(NULL))
+  }
+ 
+  f  <- lm(log10(n_sbs88) ~ log10(burden), data = sub)
+  ci <- confint(f)[2, ]
+  cat(sprintf("  %2d%% detection: k = %.3f (%.3f-%.3f), n = %d%s\n",
+              round(tg * 100), coef(f)[2], ci[1], ci[2], nrow(sub),
+              if (ci[1] <= 0.5 && ci[2] >= 0.5) "  [consistent with sqrt(burden)]" else ""))
+}
+ 
+for (tg in sort(unique(limits$target))) {
+  fit_scaling(limits %>% filter(target == tg), tg)
+}
+```
+ 
+## Observed paediatric branches
+ 
+Loaded before the remaining figures, which overlay these points. In the
+original script `df_clean` was created in the last chunk but used two chunks
+earlier, so a clean top-to-bottom run failed.
+ 
+```{r load-observed}
+crypt_pileup_sig_annotated <- read.csv(file.path(crypt_pileup_dir, "crypt_pileup_classification.csv"))
+
+observed_branches <- crypt_pileup_sig_annotated %>%
+  filter(SBS88_branch > 0) %>%
+  mutate(
+    age_branch_start = background_muts_branch_start_msa / background_muts_rate_msa,
+    age_branch_end   = background_muts_branch_end_msa   / background_muts_rate_msa,
+    branch_duration  = age_branch_end - age_branch_start,
+    SBS88_intensity  = SBS88_branch / branch_duration,
+    SBS88_proportion = SBS88_branch / (SBS88_branch + background_muts_branch)
+  ) %>%
+  # Some branches have SBS1+SBS5 = 0 because of high SBS88 attribution
+  filter(branch_duration > 0) %>%
+  dplyr::select(patient, crypt, age, SBS88_branch, SBS88_intensity,
+                branch_duration, background_muts_branch, age_branch_end,
+                SBS88_proportion)
+ 
+range(observed_branches$SBS88_proportion)
+```
+ 
+## Figure 02: minimum intensity by branch duration
+ 
+Both axes are reparameterisations of the burden/proportion surface, so the
+grids are bounded by the fitted burden range rather than chosen freely.
+ 
+```{r fig-07-data}
+lambda <- as.numeric(quantile(observed_branches$SBS88_intensity, 0.05))
+ 
+duration_grid  <- 10^seq(log10(fit_burden_range[1] / background_rate),
+                         log10(fit_burden_range[2] / background_rate),
+                         length.out = grid_n)
+intensity_grid <- background_rate * prop_grid / (1 - prop_grid)
+ 
+warn_if_outside(background_rate * duration_grid, fit_burden_range, "Duration")
+ 
+# Minimum branch duration at the observed 5th-percentile intensity
+q_duration <- invert_detection(lambda, duration_grid, cov_duration, fn5_target)
+ 
+cat(sprintf("%.1f years (95%% CI %.1f-%.1f), i.e. %.0f background mutations\n",
+            q_duration$fit, q_duration$lower, q_duration$upper,
+            q_duration$fit * background_rate))
+ 
+min_intensity <- lapply(targets, function(tg)
+  invert_detection(duration_grid, intensity_grid, cov_intensity, tg)) %>%
+  bind_rows() %>%
+  filter(n_na < 0.1) %>%
+  dplyr::rename(duration = fixed) %>%
+  mutate(fn_target_label = fn_label(target))
+ 
+# Consistency: the inverse round-trips (to grid tolerance, in log space), and a
+# stricter target always demands more intensity.
+if (!is.na(q_duration$fit)) {
+  rt <- invert_detection(q_duration$fit, intensity_grid, cov_intensity, fn5_target)
+  stopifnot(abs(log10(rt$fit) - log10(lambda)) < 0.05)
+}
+ 
+chk <- min_intensity %>%
+  pivot_wider(id_cols = duration, names_from = target, values_from = fit) %>%
+  tidyr::drop_na()
+stopifnot(all(diff(t(chk[, -1])) >= 0))
+```
+ 
+```{r fig-07, fig.width = 7.5, fig.height = 5}
+p2 <- ggplot(min_intensity,
+                 aes(duration, fit, colour = fn_target_label, fill = fn_target_label)) +
+  geom_point(data = observed_branches,
+             aes(branch_duration, SBS88_intensity), size=3,inherit.aes = FALSE) +
+  geom_hline(yintercept = lambda, linetype = "dashed", colour = "grey30", linewidth = 0.9) +
+  geom_vline(xintercept = q_duration$fit, linetype = "dashed", colour = "grey30", linewidth = 0.9) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.15, colour = NA) +
+  geom_line(linewidth = 0.9) +
+  
+  geom_text( data = data.frame(x = 0.1, y = 0.1, size=5,label = paste0("Estimated minimum branch duration: ", round(q_duration$fit, 1), " years")),
+  aes(x = x, y = y, label = label),inherit.aes = FALSE,size=5,hjust = 0,vjust = 0)+
+  scale_x_log10(limits = c(0.1, 17)) +
+  scale_y_log10(limits = c(0.1, 2000)) +
+  labs(x = "Branch duration (years)",
+       y = "Minimum detectable SBS88 intensity\n(mutations/year)",
+       colour = NULL, fill = NULL,
+       title = paste0('MSA attribution - ',dataset),
+       subtitle = "Points: observed branches from paediatric crypts | Dashed: 5th percentile intensity")+
+  theme_classic()+
+   theme(legend.position='none',
+        title=element_text(size=16,face='bold'),
+        axis.title=element_text(size=16,face='bold'),
+        axis.text=element_text(size=14),
+        legend.text=element_text(size=14))
+```
+ 
+Scaling: Poisson-limited detection implies `lambda_min ~ dt^-0.5`.
+ 
+```{r scaling-intensity}
+for (tg in sort(unique(min_intensity$target))) {
+  sub <- min_intensity %>%
+    filter(target == tg, is.finite(log10(fit)), is.finite(log10(duration)))
+ 
+  if (nrow(sub) < 3) {
+    cat(sprintf("  %2d%%: skipped, only %d usable duration(s)\n",
+                round(tg * 100), nrow(sub)))
+    next
+  }
+ 
+  f  <- lm(log10(fit) ~ log10(duration), data = sub)
+  ci <- confint(f)[2, ]
+  cat(sprintf("  %2d%%: k = %.3f (%.3f to %.3f), n = %d%s\n",
+              round(tg * 100), coef(f)[2], ci[1], ci[2], nrow(sub),
+              if (ci[1] <= -0.5 && ci[2] >= -0.5) "  [consistent with dt^-0.5]" else ""))
+}
+```
+ 
+## Figure 03: minimum proportion by background burden
+ 
+This solves the same quantity as figure 03, over the burden range spanned by
+the observed branches, with those branches overlaid.
+ 
+```{r fig-09-data}
+prop <- as.numeric(quantile(observed_branches$SBS88_proportion, 0.05))
+stopifnot(prop > 0, prop < 1)
+ 
+# The original swept 10^0 to 10^4, far outside the fitted range. Clamp to the
+# union of the fitted range and the observed branches, and warn on the overhang.
+burden_grid_09 <- 10^seq(
+  log10(min(fit_burden_range[1], min(observed_branches$background_muts_branch))),
+  log10(max(fit_burden_range[2], max(observed_branches$background_muts_branch))),
+  length.out = grid_n
+)
+warn_if_outside(burden_grid_09, fit_burden_range, "Figure 09 burden")
+ 
+q_burden <- invert_detection(prop, burden_grid_09, cov_burden, fn5_target)
+ 
+cat(sprintf("%.0f background mutations (95%% CI %.0f-%.0f); %.0f total, %.1f SBS88\n",
+            q_burden$fit, q_burden$lower, q_burden$upper,
+            q_burden$fit / (1 - prop), q_burden$fit * prop / (1 - prop)))
+ 
+prop_limits <- lapply(targets, function(tg)
+  invert_detection(burden_grid_09, prop_grid, cov_prop, tg)) %>%
+  bind_rows() %>%
+  filter(n_na < 0.1, fit <= 1) %>%     # a proportion above 1 is unreachable
+  dplyr::rename(burden = fixed) %>%
+  mutate(fn_target_label = fn_label(target))
+ 
+if (!is.na(q_burden$fit)) {
+  rt <- invert_detection(q_burden$fit, prop_grid, cov_prop, fn5_target)
+  stopifnot(abs(log10(rt$fit) - log10(prop)) < 0.05)
+}
+```
+ 
+```{r fig-09, fig.width = 7.5, fig.height = 5}
+p3 <- ggplot(prop_limits,
+                 aes(burden, fit, colour = fn_target_label, fill = fn_target_label)) +
+  geom_point(data = observed_branches,
+             aes(background_muts_branch, SBS88_proportion),size=3, inherit.aes = FALSE) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.15, colour = NA) +
+  geom_line(linewidth = 0.9) +
+  geom_hline(yintercept = prop, linetype = "dashed", colour = "grey30", linewidth = 0.9) +
+  geom_vline(xintercept = q_burden$fit, linetype = "dashed", colour = "grey30", linewidth = 0.9) +
+  geom_text( data = data.frame(x = 0.1, y = 0.01, size=5,label = paste0("Estimated minimum length: ", round(q_burden$fit, 0), " mutations")),
+  aes(x = x, y = y, label = label),inherit.aes = FALSE,size=5,hjust = 0,vjust = 0)+
+  scale_x_log10() +
+  scale_y_log10(labels = percent) +
+  labs(x = "Background mutation burden", y = "Minimum detectable SBS88 proportion",
+       colour = NULL, fill = NULL, title = paste0("MSA attribution - ",dataset))+
+  theme_classic()+
+  theme(legend.position='none',
+        title=element_text(size=16,face='bold'),
+        axis.title=element_text(size=16,face='bold'),
+        axis.text=element_text(size=14),
+        legend.text=element_text(size=14))
+
+```
+ 
+## create final figures:
+```{r}
+p0<-ggplot(data=sim_df,aes(x=burdens,y=SBS88_ground_truth_proportion,col=class))+
+  geom_point(size=3)+
+  scale_x_continuous(limits = c(30, 500)) +
+  scale_y_continuous(labels = percent, limits = c(0.01, 0.5)) +
+  labs(
+    x = "Total mutation burden",
+    y = "SBS88 proportion (ground truth)",
+    colour = NULL,
+    fill = NULL,
+    title = paste0("MSA attribution - ", dataset)
+  ) +
+  scale_colour_manual(
+    name = "Classification",
+    breaks = c("FN", "FP", "TN", "TP"),
+    labels = c("False Negative", "False Positive",
+               "True Negative", "True Positive"),
+    values = c(
+      "FN" = "skyblue2",
+      "FP" = "firebrick4",
+      "TN" = "grey80",
+      "TP" = "black"
+    )
+  )+ 
+  theme_classic()+
+  theme(legend.position='none',
+      title=element_text(size=16,face='bold'),
+      axis.title=element_text(size=16,face='bold'),
+      axis.text=element_text(size=14),
+      legend.text=element_text(size=14))
+```
+
+plot legend
+```{r}
+## create dataframe for plotting
+legend_df <- data.frame(
+  colour = c("#F8766D", "#00BFC4", "black", "grey80","skyblue2","firebrick"),
+  label = c("1% False Negative Threshold", "5% False Negative Threshold",
+            "True Positive / Observed data","True Negative" ,"False Negative", "False Positive"),
+  shape = c(NA, NA, 19, 19, 19, 19),
+  linetype = c(1, 1, NA, NA, NA, NA)
+)
+
+svg(file = paste0(out_dir,"/simulation_legend.svg"),height = 10, width = 20, bg = "transparent")
+
+plot.new()
+
+legend("left",
+       legend = legend_df$label,
+       pch = legend_df$shape,
+       col = legend_df$colour,
+       lty = legend_df$linetype,
+       pt.cex = 2.5,
+       lwd = 2,
+       bty = "n",
+       cex = 1.5,
+       ncol = 3)
+dev.off()
+
+```
+
+```{r}
+simulation_combined<-p0/p1/p3
+ggsave(paste0(out_dir,'/simulation_results_compiled.png'),simulation_combined,width=10,height=15,dpi=300)
+
+ggsave(paste0(out_dir,'/intensity_threshold.png'),p2,width=10,height=5,dpi=300)
+```

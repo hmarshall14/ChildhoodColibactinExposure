@@ -1,0 +1,1 @@
+no-SNV	20	9457435	T:2:Ins:R:3	G	GAA	-1

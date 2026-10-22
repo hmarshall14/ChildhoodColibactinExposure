@@ -1,478 +1,457 @@
 ---
 title: "Prevalence and Burden of Colibactin Mutagenesis"
-output: html_notebook
+output:
+  github_document:
+    toc: true
+    toc_depth: 3
 ---
 
-This notebook is for the analysis of the section 'Prevalence and Burden of Colibactin Mutagenesis'
-It outlines the derivation of the summary statistics and comparisons for the prevalence, burden of SBS88 / ID18 mutations, and for the construction of Figure 2.B
+<!--
+Analysis code accompanying the manuscript section "Prevalence and Burden of Colibactin Mutagenesis". Describes summary statistics for the following:
+- Prevalence of colibactin exposure,
+- Comparisons of prevalence by cohort, nationality and anatomical location
+- SBS88 / ID18 mutation burden, and its variation within and between patients
+- Comparison of prevalence between children (this study) and adults (Lee-Six et al., Nature, 2019)
+- Source data for Figure 2B
+-->
 
-```{r}
-library(dplyr)
-library(stringr)
-library(tidyverse)
-library(lmerTest)
-library(ggplot2)
-library(ggh4x)
-library(broom.mixed)
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo       = TRUE,
+  message    = FALSE,
+  warning    = FALSE,
+  comment    = "#>",
+  fig.path   = "../Figures/",
+  fig.width  = 7,
+  fig.height = 4,
+  dpi        = 300
+)
+
+set.seed(42)
 ```
 
-load in relevant data frames for this analysis :
-```{r}
-crypt_metadata<-read.csv('../Data/biopsy_metadata.csv')
-crypt_signature_attributions <- read_sheet("https://docs.google.com/spreadsheets/d/1F7razRjb5W6G-TTHCunqjq1C0w5EbE_7JG9DB6_STnw/edit?gid=1018723092#gid=1018723092")
+## Dependencies
+
+```{r libraries}
+library(tidyverse)    
+library(lmerTest)     
+library(broom.mixed)  
+library(emmeans)      
 ```
 
-## a : summary statistics of exposures:
-### i : summary statistics of prevalence
-```{r}
-# determine positive children
-pos_patients=length(unique(crypt_signature_attributions[crypt_signature_attributions$patient_colibactin_pos==TRUE,]$patient))
-all_patients=length(unique(crypt_signature_attributions$patient))
-pos_biopsy=length(unique(crypt_signature_attributions[crypt_signature_attributions$biopsy_colibactin_pos==TRUE,]$biopsy)) 
-proportion_patients_positive<-round((pos_patients/all_patients)*100,digits=0) 
+## Data
 
-## state the results
-print(paste0('Total number of patients : n=',all_patients))  # n=85 patients
-print(paste0('Patients positive : n=',pos_patients))  # n=37 patients
-print(paste0('Proportion of patients positive : ',proportion_patients_positive,"%"))  # n=37 patients
-print(paste0('Biopsies positive : n=',pos_biopsy)) # n=48 biopsies
+```{r paths}
+data_dir <- file.path("..", "Data")
 ```
 
-State the number of positive crypts per biopsy :
-```{r}
-crypt_signature_attributions%>%
-  filter(biopsy_colibactin_pos==TRUE)%>%
-  group_by(patient)%>%
-  mutate(crypts=n(),crypt_positive=SBS88>0 & ID18> 0)%>%
-  summarise(crypts=median(crypts),
-            positive_crypts=sum(crypt_positive))%>%
-  mutate(proportion_pos=positive_crypts/crypts)%>%
-  summarise(individuals=n(),
-            median_pos=median(positive_crypts),
-            median_prop=median(proportion_pos),
-            lower_q = quantile(proportion_pos,0.25),
-            upper_q = quantile(proportion_pos,0.75),
-            max= max(positive_crypts),
-            number_all_positive_crypts=sum(positive_crypts==crypts),
-            number_one_positive_crypt=sum(positive_crypts==1)) # summarise the number of crypts positive per biopsy
-```
-### ii : compare prevalence of colibactin by cohort :
-compare prevalence of colibactin positive between ibd and normal individuals:
-```{r}
-cohort_sum_table<-left_join(crypt_signature_attributions, crypt_metadata,by=c('patient','biopsy'))%>%
-  filter(!duplicated(patient))%>%
-  group_by(cohort,patient_colibactin_pos)%>%
-  summarise(patient = n(), .groups = "drop") %>%
-  tidyr::pivot_wider(names_from = patient_colibactin_pos, values_from = patient, values_fill = 0) %>%
-  column_to_rownames("cohort") %>%
-  as.matrix()
+```{r load-data}
+crypt_metadata <- read.csv(file.path(data_dir, "biopsy_metadata.csv"))
 
-## summarise by cohort :
-n_ibd_pos=cohort_sum_table['IBD','TRUE']
-prop_ibd_pos=round(cohort_sum_table['IBD','TRUE'] / rowSums(cohort_sum_table)['IBD']*100)
-n_normal_pos=cohort_sum_table['Normal','TRUE']
-prop_normal_pos=round(cohort_sum_table['Normal','TRUE'] / rowSums(cohort_sum_table)['Normal']*100)
+crypt_signature_attributions <- read.csv(
+  file.path(data_dir, "crypt_signature_attributions.csv")
+)
 
-## print the outputs
-print(paste0('Total Normal patients : n=',sum(cohort_sum_table['Normal',])))
-print(paste0('Normal patients positive : n=',n_normal_pos))  # n=14 patients
-print(paste0('Proportion normal patients positive : ',prop_normal_pos, '%'))  # 45%
-print(paste0('Total IBD patients : n=',sum(cohort_sum_table['IBD',])))
-print(paste0('IBD patients positive : n=',n_ibd_pos))  # n=21 patients
-print(paste0('Proportion IBD patients positive : n=',prop_ibd_pos,'%')) # n=39%
+lee_six_nature_2019 <- read.csv(
+  file.path(data_dir, "lee_six_nature_2019_sbs_id_attribution.csv")
+)
 ```
 
-```{r}
-## perform fishers test
-fisher.test(cohort_sum_table)
+Two joined tables are used throughout. The join direction is **not**
+interchangeable, so both are defined explicitly and reused rather than being
+re-derived in every chunk:
+
+* `crypts_attr_left` — signature attributions on the left, i.e. one row per
+  crypt with attributions, annotated with biopsy metadata. Used for all
+  prevalence counts.
+* `crypts_meta_left` — biopsy metadata on the left. Used for the burden models,
+  preserving the original behaviour of those chunks.
+
+```{r joined-tables}
+join_keys <- c("patient", "biopsy")
+crypts_attr_left <- left_join(crypt_signature_attributions, crypt_metadata, by = join_keys)
+crypts_meta_left <- left_join(crypt_metadata, crypt_signature_attributions, by = join_keys)
 ```
-### iii : compare for prevalence by nationality
-```{r}
-## summarise n and proportion by nationality :
-nationality_table <- left_join(crypt_signature_attributions, crypt_metadata,by=c('patient','biopsy'))%>%
-  filter(!duplicated(patient))%>%
-  group_by(nationality,patient_colibactin_pos)%>%
-  summarise(patients = n(), .groups = "drop") %>%
-  tidyr::pivot_wider(
-    names_from = patient_colibactin_pos,
-    values_from = patients,
-    values_fill = 0
-  ) %>%
+
+# A. Prevalence of colibactin exposure
+
+## A.i. Overall prevalence
+
+```{r prevalence-overall}
+n_patients <- n_distinct(crypt_signature_attributions$patient)
+
+n_patients_pos <- crypt_signature_attributions %>%
+  filter(patient_colibactin_pos) %>%
+  pull(patient) %>%
+  n_distinct()
+
+n_biopsies_pos <- crypt_signature_attributions %>%
+  filter(biopsy_colibactin_pos) %>%
+  pull(biopsy) %>%
+  n_distinct()
+
+prop_patients_pos <- round(n_patients_pos / n_patients * 100)
+
+cat(sprintf("Total patients:                   n = %d\n", n_patients))
+cat(sprintf("Patients positive:                n = %d\n", n_patients_pos))
+cat(sprintf("Proportion of patients positive:  %d%%\n",   prop_patients_pos))
+cat(sprintf("Biopsies positive:                n = %d\n", n_biopsies_pos))
+```
+## A.ii. Prevalence by nationality
+
+```{r nationality-data}
+nationality_df <- crypts_attr_left %>%
+  filter(!duplicated(patient)) %>%
+  mutate(nationality = factor(nationality, levels = c("UK", "Denmark")))
+
+nationality_counts <- nationality_df %>%
+  count(nationality, patient_colibactin_pos, name = "patients") %>%
+  pivot_wider(names_from  = patient_colibactin_pos, values_from = patients, values_fill = 0) %>%
   column_to_rownames("nationality") %>%
   as.matrix()
 
-## summarise by cohort :
-n_uk_pos=nationality_table['UK','TRUE']
-prop_uk_pos=round(nationality_table['UK','TRUE'] / rowSums(nationality_table)['UK']*100)
-n_danish_pos=nationality_table['Denmark','TRUE']
-prop_danish_pos=round(nationality_table['Denmark','TRUE'] / rowSums(nationality_table)['Denmark']*100)
-
-# print summaries
-print(paste0('UK patients : n=',sum(nationality_table['UK',])))  # n=73 patients
-print(paste0('UK patients positive : n=',n_uk_pos))  # n=50 patients
-print(paste0('Proportion UK patients positive : ',prop_uk_pos, '%'))  #68%
-
-print(paste0('Danish patients : n=',sum(nationality_table['Denmark',])))  # n=17 patients
-print(paste0('Danish patients positive : n=',n_danish_pos))  # n=7 patients
-print(paste0('Proportion Danish patients positive : n=',prop_danish_pos,'%')) # n=41%
+nationality_counts
 ```
 
-```{r}
-# fisher's test to compare between nationalities:
-pvalue=round(fisher.test(nationality_table)$p.value,digits=4)
-print(paste0("Fisher's p-value=",pvalue))
+```{r nationality-summary}
+n_uk_pos        <- nationality_counts["UK",      "TRUE"]
+n_danish_pos    <- nationality_counts["Denmark", "TRUE"]
+prop_uk_pos     <- round(n_uk_pos     / rowSums(nationality_counts)["UK"]      * 100)
+prop_danish_pos <- round(n_danish_pos / rowSums(nationality_counts)["Denmark"] * 100)
+
+cat(sprintf("UK patients:               n = %d\n", sum(nationality_counts["UK", ])))
+cat(sprintf("UK patients positive:      n = %d (%d%%)\n", n_uk_pos, prop_uk_pos))
+cat(sprintf("Danish patients:           n = %d\n", sum(nationality_counts["Denmark", ])))
+cat(sprintf("Danish patients positive:  n = %d (%d%%)\n", n_danish_pos, prop_danish_pos))
 ```
 
-### v : compare prevalence of colibactin by location :
-Here we select only those individuals who had two biopsies
-```{r}
-## donors with two biopsies :
-donors_two_biopsies_df<-left_join(crypt_signature_attributions, crypt_metadata,by=c('patient','biopsy'))%>%
-  group_by(patient)%>%
-  filter(length(unique(biopsy))>1)
+Logistic regression for nationality, adjusted for sex, age and cohort.
 
-print(paste0('Donors with two biopsies: ',length(unique(donors_two_biopsies_df$patient))))
+```{r nationality-model}
+nationality_model <- glm(
+  patient_colibactin_pos ~ nationality + sex + age + cohort, data = nationality_df, family = binomial)
+
+summary(nationality_model)$coefficients
+
+nationality_p <- summary(nationality_model)$coefficients["nationalityDenmark", "Pr(>|z|)"]
+cat(sprintf("Nationality (Denmark vs UK) p = %s\n", format.pval(nationality_p, digits = 3)))
 ```
 
-```{r}
-## donors with two biopsies who are positive in at least one crypt :
-number_pos_donors_two_biopsies=donors_two_biopsies_df%>%
-  filter(patient_colibactin_pos==TRUE)%>%
-  filter(!duplicated(patient))%>%nrow()
-print(paste0('Donors with two biopsies: ',number_pos_donors_two_biopsies))
-```
-Provide a breakdown of positive biopsies by anatomical location
-```{r}
-## create a breakdown of positive biopsies by locaiton
-donors_two_biopsies_df%>%
-  filter(patient_colibactin_pos==TRUE)%>%
-  filter(location%in%c('Sigmoid','Ascending'))%>%
-  distinct(patient, location,.keep_all=TRUE)%>%
-  select(patient, biopsy_colibactin_pos,location)%>%
-  pivot_wider(names_from=location, values_from =biopsy_colibactin_pos)%>%
-  mutate(summary=case_when(Sigmoid==TRUE & Ascending==TRUE ~'Both positive',
-                       Sigmoid==TRUE & Ascending ==FALSE ~ 'Only sigmoid positive',
-                       Sigmoid==FALSE & Ascending ==TRUE ~ 'Only ascending positive',
-                       TRUE ~ 'Neither'))
-  group_by(summary)%>%
-  summarise(n=length(summary))
+## A.iii. Prevalence by cohort (IBD vs histologically normal)
+Restricted to the UK cohort, which is the only one containing both groups.
+```{r cohort-data}
+cohort_df <- crypts_attr_left %>%
+  filter(nationality == "UK") %>%
+  filter(!duplicated(patient))
+
+cohort_counts <- cohort_df %>%
+  count(cohort, patient_colibactin_pos, name = "patients") %>%
+  pivot_wider(names_from  = patient_colibactin_pos, values_from = patients, values_fill = 0) %>%
+  column_to_rownames("cohort") %>%
+  as.matrix()
+
+cohort_counts
 ```
 
-### v: look at proportion of crypts that are positive in a given biopsy :
-```{r}
-crypts_biopsy_sum<-crypt_signature_attributions%>%
-  filter(biopsy_colibactin_pos==TRUE)%>%
-  mutate(crypt_colibactin_pos=(SBS88>0 & ID18>0))%>%
-  group_by(biopsy)%>%
-  summarise(n_positive_crypts=sum(crypt_colibactin_pos),
-            n_crypts=n())%>%
-  mutate(prop_crypts_positive=n_positive_crypts / n_crypts)%>%
-  summarise(median_prop_pos=median(prop_crypts_positive), # median proportion of crypts pos (100%)
-            median_count=median(n_positive_crypts), # median number of positive crypts per biopsy
-            n_biopsies_all_crypts_positive=sum(prop_crypts_positive==1), # number of biopsies with 100% of crypts positive
-            n_biopsies=n(), # number of biopsies
-            lqr=quantile(prop_crypts_positive,0.25))
+```{r cohort-summary}
+n_normal_pos    <- cohort_counts["Normal", "TRUE"]
+n_ibd_pos       <- cohort_counts["IBD",    "TRUE"]
+prop_normal_pos <- round(n_normal_pos / rowSums(cohort_counts)["Normal"] * 100)
+prop_ibd_pos    <- round(n_ibd_pos    / rowSums(cohort_counts)["IBD"]    * 100)
 
-print(paste0('Median number of positive crypts per biopsy: ',crypts_biopsy_sum$median_count, ' crypts'))
-print(paste0('Median proportion of positive crypts per biopsy : ',crypts_biopsy_sum$median_prop_pos*100, '%'))
-print(paste0('Number of biopsies with all crypts positive : ',crypts_biopsy_sum$n_biopsies_all_crypts_positive, ' biopsies'))
-print(paste0('Total number of positive biopsies : ',crypts_biopsy_sum$n_biopsies, ' biopsies'))
-print(paste0('Proportion of biopsies with all crypts positive : ', round((crypts_biopsy_sum$n_biopsies_all_crypts_positive / crypts_biopsy_sum$n_biopsies)*100,0) , '%'))
+cat(sprintf("Histologically normal patients:            n = %d\n", sum(cohort_counts["Normal", ])))
+cat(sprintf("Histologically normal patients positive:   n = %d (%d%%)\n", n_normal_pos, prop_normal_pos))
+cat(sprintf("IBD patients:                              n = %d\n", sum(cohort_counts["IBD", ])))
+cat(sprintf("IBD patients positive:                     n = %d (%d%%)\n", n_ibd_pos, prop_ibd_pos))
 ```
 
-## b : mutation burden of colibactin
-### i : calcualte summary metrics
-```{r}
-# summary for SBS88
-min_sbs88_burden=min(crypt_signature_attributions[crypt_signature_attributions$biopsy_colibactin_pos==TRUE & crypt_signature_attributions$SBS88>0,]$SBS88,na.rm=T)
-max_sbs88_burden=max(crypt_signature_attributions[crypt_signature_attributions$biopsy_colibactin_pos==TRUE & crypt_signature_attributions$SBS88>0,]$SBS88,na.rm=T)
+Logistic regression for cohort, adjusted for sex and age.
 
-# summary for ID18
-min_id18_burden=min(crypt_signature_attributions[crypt_signature_attributions$biopsy_colibactin_pos==TRUE & crypt_signature_attributions$ID18>0,]$ID18,na.rm=T)
-max_id18_burden=max(crypt_signature_attributions[crypt_signature_attributions$biopsy_colibactin_pos==TRUE & crypt_signature_attributions$ID18>0,]$ID18,na.rm=T)
-
-print(paste0('Min SBS88 burden:', min_sbs88_burden,' mutations'))
-print(paste0('Max SBS88 burden:', max_sbs88_burden,' mutations'))
-
-print(paste0('Min ID18 burden:', min_id18_burden,' mutations'))
-print(paste0('Max ID18 burdne:', max_id18_burden,' mutations'))
+```{r cohort-model}
+cohort_model <- glm(patient_colibactin_pos ~ cohort + sex + age, data   = cohort_df, family = binomial)
+cohort_p <- summary(cohort_model)$coefficients["cohortNormal", "Pr(>|z|)"]
+cat(sprintf("Cohort (Normal vs IBD) p = %s\n", format.pval(cohort_p, digits = 3)))
 ```
+## A.iv. Spread in colibactin burden across crypts within a biopsy
+Number and proportion of positive crypts per positive biopsy.
 
-### ii : perform comparisons by biopsy location :
-```{r}
-# filter for location :
-location_df <- left_join(crypt_metadata,crypt_signature_attributions,by=c('biopsy','patient'))%>%
-  mutate(SBS88=SBS88/sensitivitySBS,ID18=ID18/sensitivityID)%>%
-  filter(SBS88>0 & ID18>0& biopsy_colibactin_pos==TRUE)%>% # subset positive crypts
-  select(patient, sample,site,SBS88,ID18)%>%
-  pivot_longer(cols=c('SBS88','ID18'),values_to='count','names_to'='signature')
-sigs <- c("SBS88", "ID18")
-
-# Function to fit model comparing left to right colon and extract stats :
-fit_location_model <- function(sig, data) {
-  model <- lmer(count ~ site + (1 | patient), data = filter(data, signature == sig))
-  tidy(model, effects = "fixed") %>%
-    filter(term != "(Intercept)") %>%   # site comparison term
-    mutate(
-      signature = sig, estimate = round(estimate, 0), 
-      low_ci = round(estimate - 1.96 * std.error, 0), 
-      upp_ci = round(estimate + 1.96 * std.error, 0), p.value = round(p.value, 10)) %>%
-    select(signature, estimate, low_ci, upp_ci, p.value)
-}
-
-# Run models
-location_results <- map_dfr(sigs, fit_location_model, data = location_df)
-location_results %>%
-  mutate(text = paste0(signature, ": ", abs(estimate), " [", abs(upp_ci), ", ", abs(low_ci), "] P=", p.value,'\n')) %>%
-  pull(text) %>%
-  walk(cat)
-```
-### iii : perform comparisons by IBD and normal individuals :
-```{r}
-# filter for location :
-ibd_normal_df <- left_join(crypt_metadata,crypt_signature_attributions,by=c('biopsy','patient'))%>%
-  mutate(SBS88=SBS88/sensitivitySBS,ID18=ID18/sensitivityID)%>%
-  filter(SBS88>0 & ID18>0& biopsy_colibactin_pos==TRUE)%>% # subset positive crypts
-  select(patient, sample,site,cohort,SBS88,ID18)%>%
-  pivot_longer(cols=c('SBS88','ID18'),values_to='count','names_to'='signature')
-sigs <- c("SBS88", "ID18")
-
-# Function to fit model and extract stats
-fit_cohort_model <- function(sig, data) {
-  model <- lmer(count ~ site +cohort+ (1 | patient), data = filter(data, signature == sig))
-  tidy(model, effects = "fixed") %>%
-    filter(term == "cohortNormal") %>%   # site comparison term
-    mutate(
-      signature = sig, estimate = round(estimate, 0), 
-      low_ci = round(estimate - 1.96 * std.error, 0), 
-      upp_ci = round(estimate + 1.96 * std.error, 0), p.value = round(p.value, 3)) %>%
-    select(signature, estimate, low_ci, upp_ci, p.value)
-}
-
-# Run models
-ibd_normal_results <- map_dfr(sigs, fit_cohort_model, data = ibd_normal_df)
-ibd_normal_results %>%
-  mutate(text = paste0(signature, ": ", (estimate), " [", (upp_ci), ", ", (low_ci), "] P=", p.value,'\n')) %>%
-  pull(text) %>%
-  walk(cat)
-```
-
-### iv : compare children and adults :
-For this analysis, we will compare SBS88 / ID18 burdens from our study and Lee-six et al. Nature. 2019
-```{r}
-## Lee Six et al Nature 2019 attributions : Taken from Supplementary Table of paper
-adult_crypt_metadata <- read.csv('..//Data/Lee_Six_Nature_2019/41586_2019_1672_MOESM4_ESM.csv')
-adult_crypt_attributions <- read.table('../Data/Lee_Six_Nature_2019/41586_2019_1672_MOESM5_ESM.txt',sep='\t',header=T)
-
-adult_crypt_attributions <- left_join(adult_crypt_attributions,adult_crypt_metadata,by=c('patient'='patient_label_in_files','age','sex'))%>%
-  
-  # subset for just adults :
-  filter(age>18)%>%
-
-  # format variables to facilitate analyses :
-  mutate(location=case_when(str_detect(site, 'Left') ~ 'Left',
-                            TRUE~'Right'),
-         cohort='Adult',
-         colibactin_present=ifelse((SBSA>100 | SBSA/sbstotal>0.05) & (IDA>5 | IDA/idtotal>0.05),TRUE,FALSE))%>% # use criteria from Lee Six paper 
-  
-  # subset for just colibactin positive crypts
-  filter(colibactin_present==TRUE)%>%
-  dplyr::select(patient,crypt,age,location,cohort,SBSA,IDA)
-colnames(adult_crypt_attributions)<-c('patient','crypt','age','site','cohort','SBS88','ID18')
-```
-
-reformat children's crypts burdens for analysis 
-```{r}
-## derive summaries per donor
-children_crypt_attributions<-left_join(crypt_metadata,crypt_signature_attributions,by=c('patient','biopsy'))%>%
-
-  # subset just positive crypts
-  filter(SBS88>0 & ID18>0& biopsy_colibactin_pos==TRUE)%>% # subset positive crypts
-  mutate(cohort='Child')%>%
-  select(patient,crypt,age,site,cohort,SBS88,ID18)
-
-colnames(children_crypt_attributions)<-c('patient','crypt','age','site','cohort','SBS88','ID18')
-```
-
-combine to construct a master datafame for analysis and for plotting
-```{r}
-## construct a combined dataframe to facilitate plotting :
-compare_children_adult_df<-rbind(children_crypt_attributions,adult_crypt_attributions)%>%
-  
-  # convert to long format to facilitate plotting
-  pivot_longer(cols=c('SBS88','ID18'),values_to='count',names_to='signature')%>%
-  
-  # select only cases with positive burdens for SBS88 / ID18 
-  filter(count>0)%>%
-  
-  # stipulate factor levels
-  mutate(site=factor(site,levels=c('Left','Right')),
-         cohort=factor(cohort, levels=c('Child','Adult')),
-         signature=factor(signature,levels=c('SBS88','ID18')))
-```
-
-### v. compare between paediatric crypts and normal adult crypts:
-```{r}
-## run linear mixed effects for children versus adult with stratification by site
-compare_children_adult=compare_children_adult_df %>%
-  group_by(site, signature) %>%
-  group_modify(~ {
-    model <- lmer(count ~ cohort + (1 | patient), data = .x)
-    broom.mixed::tidy(model)})%>%
-  filter(effect=='fixed' & term!='(Intercept)')
-
-# obtain model estimates
-estimate=round(compare_children_adult$estimate,digits=0)
-upper_ci=round(compare_children_adult$estimate+1.96*compare_children_adult$std.error,digits=0)
-lower_ci=round(compare_children_adult$estimate-1.96*compare_children_adult$std.error,digits=0)
-compare_children_adult$sum=paste0(estimate,' [',lower_ci,',',upper_ci,']')
-compare_children_adult$p.value=round(compare_children_adult$p.value,digits=3)
-compare_children_adult$comparison='children adult'
-
-
-compare_children_adult<-compare_children_adult%>%
-  select(signature,site, comparison,sum,p.value)%>%
-  arrange(signature)
-
-# print the outputs from model estimates
-print(compare_children_adult)
-```
-
-### viii : compare prevalence between lee_six and our dataset
-```{r}
-## lee_six attributions :
-adult_crypt_metadata <- read.csv('..//Data/Lee_Six_Nature_2019/41586_2019_1672_MOESM4_ESM.csv')
-adult_crypt_attributions <- read.table('../Data/Lee_Six_Nature_2019/41586_2019_1672_MOESM5_ESM.txt',sep='\t',header=T)%>%
-
-  # join with metadata
-  left_join(adult_crypt_metadata,by=c('patient'='patient_label_in_files','age','sex'))%>%
-  
-  # filter for adults
-  filter(age>18)%>%
-  
-  # annotate for locationa and colibactin status
-  mutate(location=case_when(str_detect(site, 'Left') ~ 'Left',
-                            TRUE~'Right'),
-         colibactin_present=ifelse((SBSA>100 | SBSA/sbstotal>0.05) & (IDA>5 | IDA/idtotal>0.05),TRUE,FALSE))%>%
-  dplyr::select(patient,crypt,site,age,colibactin_present,bowel_cancer_diagnosis,SBSA,IDA)
-
-# summary table :
-adult_crypt_prevalence<-adult_crypt_attributions%>%
-  group_by(patient)%>%
-  summarise(site=first(site), age=min(age), bowel_cancer_diagnosis=first(bowel_cancer_diagnosis),
-            patient_colibactin_pos=sum(colibactin_present,na.rm=T)>1)%>%
-  group_by(patient_colibactin_pos)%>%
-  summarise(adult=n())%>%
-  column_to_rownames(var='patient_colibactin_pos')
-
-# print outputs
-adult_prev=round(adult_crypt_prevalence['TRUE',] / sum(adult_crypt_prevalence)*100,digits=0)
-print(paste0('Colibactin prevalence in adults :', adult_prev,'%' ))
-```
-
-```{r}
-# create summary table for children:
-childre_prevalence<-left_join(crypt_signature_attributions, crypt_metadata,by=c('patient','biopsy'))%>%
-  filter(!duplicated(patient))%>%
-  group_by(patient_colibactin_pos)%>%
-  summarise(children = n(), .groups = "drop")%>%
-  column_to_rownames(var='patient_colibactin_pos')
-
-# perform fisher's test :
-fisher.test(t(cbind(adult_crypt_prevalence,childre_prevalence))) #p-value=0.333
-  
-```
-
-##c : Figure 2.C : Boxplot for each individual biopsy in children's cohort
-create an aggregate dataframe for plotting 
-```{r}
-## for comparison between children's locations, format the previous comparisons betwen locations:
-children_site_compare<-location_results
-children_site_compare$site='Both'
-children_site_compare$comparison='children children'
-children_site_compare$signature=str_remove(children_site_compare$signature,'\\s')
-
-children_site_compare<-children_site_compare%>%
-  select(signature,site, comparison, p.value)
-
-# createa a combined dataframe
-compare_p_values_df<-rbind(compare_children_adult,children_site_compare)%>%
-  group_by(signature) %>%
-  ungroup()%>%
-  mutate(label=case_when(p.value<0.001~'P < 0.001',
-                         TRUE~paste0('P = ',round(p.value,digits=3))),
-         comparison=factor(comparison,levels=c('children children','children adult')))%>%
-  arrange(signature, site, comparison)
-
-```
-
-
-## d : Figure 2.D : Boxplot for Cohort Summary
-```{r}
-## label_df for plotting p-values :
-label_df=compare_p_values_df
-label_df$y=c(550,500,500,3800,3500,3500)
-label_df$x=c(2,1.5,3.5,2,1.5,3.5)
-label_df$signature=factor(label_df$signature, levels=c('SBS88','ID18'))
-
-# create df for plotting brakcets :
-brackets_df <- data.frame(
-  signature = compare_p_values_df$signature,
-  xstart    = c(1, 1,3,1,1,3),        # starting x for bracket
-  xend      = c(3, 2,4,3,2,4),        # ending x for bracket
-  y         = c(550,500,500,3800,3500,3500)   # height of the bracket
-)
-brackets_df$signature=factor(brackets_df$signature, levels=c('SBS88','ID18'))
-
-## stipulate factor order for plotting :
-compare_children_adult_df$group=paste(compare_children_adult_df$cohort, compare_children_adult_df$site,sep=' ')
-compare_children_adult_df$group=factor(compare_children_adult_df$group, 
-                                       levels=c("Child Left", "Adult Left","Child Right","Adult Right"))
-## initialise plot :
-svg('~/cohort_summary.svg',width=12,height=10,bg='transparent')
-
-ggplot(compare_children_adult_df, aes(x = group, y = count, fill = group)) +
-  
-  # construct boxplot :
-  geom_boxplot(size = 0.7,outlier=F) +
-  
-  # fcet by signature :
-  facet_grid(signature~ ., scales = "free", space = "free_x", switch='y',
-             label=labeller(signature=as_labeller(c(SBS88='SBS88 Mutation Burden',  ID18='ID18 Mutation Burden')))) +
-   facetted_pos_scales(y = list(signature == "SBS88" ~ scale_y_continuous(limits = c(0, 4000)), TRUE ~ scale_y_continuous(limits = c(0,600)))) +
-  
-  # stipulate colour scheme
-  scale_fill_manual(values =c('thistle1', 'orchid4','thistle1', 'orchid4')) +
-  
-  # add in pvalues :
-  geom_text(data = label_df, aes(x = x, y = y *1.05, label = label), inherit.aes = FALSE, fontface = "bold", size = 5) +
-  # add in brakces and pvalues :
-  geom_segment(data = brackets_df, aes(x = xstart, xend = xend, y = y, yend = y), inherit.aes = FALSE, size = 0.8) +
-  geom_segment(data = brackets_df, aes(x = xstart, xend = xstart, y = y, yend = 0.97*y),  inherit.aes = FALSE, size = 0.8) +
-  geom_segment(data = brackets_df,  aes(x = xend, xend = xend, y = y, yend = 0.97*y), inherit.aes = FALSE, size = 0.8) +
-  
-  
-  
-  # stipulate x axis :
-  scale_x_discrete(breaks=c("Child Left", "Adult Left","Child Right","Adult Right"),
-                   labels=c('Childhood Colon\nLeft Side', 'Adult Colon\nLeft Side',
-                            'Childhood Colon\nRight Side','Adult Colon\nRight Side'))+
-  
-  # formate theme 
-  labs(fill = 'crypt Type') +
-  
-  theme_classic() +
-  theme(
-    axis.text.x = element_text(size = 14,face='bold'),
-    axis.text.y = element_text(size = 14),
-    axis.ticks.x = element_blank(),
-    axis.title.x = element_blank(),
-    axis.title.y = element_blank(),
-    legend.title = element_blank(),
-    legend.position = 'none',
-    strip.background = element_blank(),
-    strip.placement='outside',
-    strip.text = element_text(size = 18, face = "bold")
+```{r crypts-per-biopsy-summary}
+crypts_biopsy_sum <- crypt_signature_attributions %>%
+  filter(biopsy_colibactin_pos) %>%
+  group_by(biopsy) %>%
+  summarise(
+    n_positive_crypts = sum(crypt_colibactin_pos),
+    n_crypts          = n(),
+    .groups           = "drop"
+  ) %>%
+  mutate(prop_crypts_positive = n_positive_crypts / n_crypts) %>%
+  summarise(
+    median_prop_pos               = median(prop_crypts_positive),
+    median_count                  = median(n_positive_crypts),
+    lqr                           = quantile(n_positive_crypts, 0.25),
+    uqr                           = quantile(n_positive_crypts, 0.75),
+    n_biopsies                    = n(),
+    n_biopsies_all_crypts_positive = sum(prop_crypts_positive == 1),
+    instances_one_pos_crypt        = sum(n_positive_crypts == 1)
   )
-dev.off()
+
+with(crypts_biopsy_sum, {
+  cat(sprintf("Median positive crypts per biopsy:            %g [%g, %g]\n",
+              median_count, lqr, uqr))
+  cat(sprintf("Median proportion of crypts positive:         %g%%\n",
+              median_prop_pos * 100))
+  cat(sprintf("Biopsies with all crypts positive:            %d\n",
+              n_biopsies_all_crypts_positive))
+  cat(sprintf("Total positive biopsies:                      %d\n",
+              n_biopsies))
+  cat(sprintf("Proportion of biopsies with all crypts pos.:  %d%%\n",
+              round(n_biopsies_all_crypts_positive / n_biopsies * 100)))
+})
+```
+
+Variability of sensitivity-corrected burden within an individual, summarised as
+the coefficient of variation (CV = SD / mean) of positive crypts per patient.
+The median CV across patients is reported with its interquartile range.
+
+```{r within-patient-cv}
+cv_summary <- function(data, signature, sensitivity, group_var) {
+  data %>%
+    filter(crypt_colibactin_pos) %>%
+    mutate(burden = {{ signature }} / {{ sensitivity }}) %>%
+    group_by({{ group_var }}) %>%
+    summarise(
+      mean    = mean(burden),
+      sd      = sd(burden),
+      cv      = sd / mean,
+      .groups = "drop"
+    ) %>%
+    summarise(
+      mean_cv = mean(cv, na.rm = TRUE),
+      low_cv    = quantile(cv, 0.25, na.rm = TRUE),
+      upp_cv    = quantile(cv, 0.75, na.rm = TRUE)
+    ) %>%
+    mutate(across(everything(), ~ round(.x, 2)))
+}
+
+sbs88_cv <- cv_summary(crypt_signature_attributions[crypt_signature_attributions$crypt_colibactin_pos==TRUE,], SBS88, sensitivitySBS, biopsy)
+id18_cv  <- cv_summary(crypt_signature_attributions[crypt_signature_attributions$crypt_colibactin_pos==TRUE,], ID18,  sensitivityID,  biopsy)
+
+cat(sprintf("SBS88 within-biopsy CV: %.2f IQR [%.2f, %.2f]\n",
+            sbs88_cv$mean_cv, sbs88_cv$low_cv, sbs88_cv$upp_cv))
+cat(sprintf("ID18 within-biopsy CV:   %.2f IQR [%.2f, %.2f]\n",
+            id18_cv$mean_cv, id18_cv$low_cv, id18_cv$upp_cv))
+```
+
+
+## A.v. Prevalence by anatomical location
+
+```{r location-frequency}
+location_frequency <- crypts_attr_left %>%
+  filter(location %in% c("Caecum", "Ascending", "Transverse", "Sigmoid", "Rectum")) %>%
+  dplyr::select(patient, site, biopsy_colibactin_pos) %>%
+  distinct()
+
+location_frequency %>%
+  group_by(site) %>%
+  summarise(
+    n            = n(),
+    pos_biopsies = sum(biopsy_colibactin_pos),
+    .groups      = "drop"
+  ) %>%
+  mutate(prop = pos_biopsies / n)
+```
+
+Patients with biopsies from more than one site allow left vs right colon to be
+compared within an individual.
+
+```{r two-biopsy-donors}
+donors_two_biopsies_df <- crypts_attr_left %>%
+  group_by(patient) %>%
+  filter(n_distinct(biopsy) > 1) %>%
+  ungroup()
+
+n_two_biopsy_donors <- n_distinct(donors_two_biopsies_df$patient)
+
+n_two_biopsy_donors_pos <- donors_two_biopsies_df %>%
+  filter(patient_colibactin_pos) %>%
+  pull(patient) %>%
+  n_distinct()
+
+cat(sprintf("Donors with two biopsies:           n = %d\n", n_two_biopsy_donors))
+cat(sprintf("...of whom colibactin positive:     n = %d\n", n_two_biopsy_donors_pos))
+```
+
+Breakdown of positive biopsies by anatomical location, for positive patients
+with two biopsies.
+
+```{r two-biopsy-location-breakdown}
+donors_two_biopsies_df %>%
+  filter(patient_colibactin_pos, site %in% c("Left", "Right")) %>%
+  distinct(patient, site, .keep_all = TRUE) %>%
+  dplyr::select(patient, site, biopsy_colibactin_pos) %>%
+  pivot_wider(names_from = site, values_from = biopsy_colibactin_pos) %>%
+  mutate(
+    summary = case_when(
+      Left  & Right  ~ "Both positive",
+      Left  & !Right ~ "Only left positive",
+      !Left & Right  ~ "Only right positive",
+      TRUE           ~ "Neither"
+    )
+  ) %>%
+  count(summary, name = "n")
+```
+
+# B. Mutation burden of colibactin
+## B.i. Summary metrics
+
+Range of SBS88 and ID18 burdens across crypts carrying each signature, within
+positive biopsies.
+
+```{r burden-range}
+burden_range <- crypt_signature_attributions %>%
+  filter(biopsy_colibactin_pos) %>%
+  summarise(
+    min_SBS88 = min(SBS88[SBS88 > 0], na.rm = TRUE),
+    max_SBS88 = max(SBS88[SBS88 > 0], na.rm = TRUE),
+    min_ID18  = min(ID18[ID18 > 0],   na.rm = TRUE),
+    max_ID18  = max(ID18[ID18 > 0],   na.rm = TRUE)
+  )
+
+with(burden_range, {
+  cat(sprintf("SBS88 burden: %g - %g mutations\n", min_SBS88, max_SBS88))
+  cat(sprintf("ID18 burden:  %g - %g mutations\n", min_ID18,  max_ID18))
+})
+```
+
+## B.ii. Burden by biopsy location
+Sensitivity-corrected burden in doubly positive crypts from positive biopsies,
+modelled with a patient-level random intercept.
+
+```{r burden-long-data}
+signatures <- c("SBS88", "ID18")
+
+burden_df <- crypts_meta_left %>%
+  mutate(
+    SBS88 = SBS88 / sensitivitySBS,
+    ID18  = ID18  / sensitivityID
+  ) %>%
+  filter(SBS88 > 0, ID18 > 0, biopsy_colibactin_pos) %>%
+  dplyr::select(patient, sample, site, cohort, SBS88, ID18) %>%
+  pivot_longer(
+    cols      = all_of(signatures),
+    names_to  = "signature",
+    values_to = "count"
+  )
+
+location_df   <- dplyr::select(burden_df, -cohort)%>%
+  mutate(site=factor(site, levels=c('Right','Left')))
+ibd_normal_df <- burden_df
+```
+
+```{r location-model}
+# Fit one mixed model per signature and return the tidied fixed effect of
+# interest with a Wald 95% confidence interval. `term_prefix` is matched
+# against the start of the coefficient name (e.g. "site" matches "siteRight"),
+# so the code does not depend on how the factor levels happen to be labelled.
+fit_burden_model <- function(sig, data, formula, term_prefix) {
+  model <- lmer(formula, data = filter(data, signature == sig))
+
+  tidy(model, effects = "fixed") %>%
+    filter(startsWith(term, term_prefix)) %>%
+    mutate(
+      signature = sig,
+      estimate  = round(estimate, 0),
+      low_ci    = round(estimate - 1.96 * std.error, 0),
+      upp_ci    = round(estimate + 1.96 * std.error, 0),
+      p.value   = signif(p.value, 3)
+    ) %>%
+    dplyr::select(signature, estimate, low_ci, upp_ci, p.value)
+}
+
+location_results <- map_dfr(
+  signatures, fit_burden_model,
+  data        = location_df,
+  formula     = count ~ site + (1 | patient),
+  term_prefix = "site"
+)
+
+location_results %>%
+  mutate(summary = sprintf("%s: %d mutations [%d, %d], p-value=%s",
+                           signature, estimate, low_ci, upp_ci,
+                           format.pval(p.value, digits = 2)))
+```
+
+
+## B.iii. Burden by cohort (IBD vs histologically normal)
+
+Adjusted for colonic site.
+
+```{r cohort-burden-model}
+ibd_normal_results <- map_dfr(
+  signatures, fit_burden_model,
+  data        = ibd_normal_df,
+  formula     = count ~ site + cohort + (1 | patient),
+  term_prefix = "cohort"
+)
+
+ibd_normal_results %>%
+  mutate(summary = sprintf("%s: %d [%d, %d], P = %s",
+                           signature, estimate, low_ci, upp_ci,
+                           format.pval(p.value, digits = 3)))
+```
+
+## B.iv. Prevalence in children vs adults
+
+SBS88 / ID18 attributions from this study are compared with adult normal colonic
+crypts from Lee-Six et al., *Nature*, 2019.
+
+```{r adult-prevalence}
+adult_prevalence <- lee_six_nature_2019 %>%
+  filter(age > 18) %>%
+  group_by(patient) %>%
+  summarise(
+    patient_colibactin_pos = dplyr::first(patient_colibactin_pos),
+    .groups                = "drop"
+  ) %>%
+  count(patient_colibactin_pos, name = "adult") %>%
+  column_to_rownames("patient_colibactin_pos")
+
+n_adult_pos    <- adult_prevalence["TRUE", ]
+prop_adult_pos <- round(n_adult_pos / sum(adult_prevalence) * 100)
+
+cat(sprintf("Colibactin prevalence in adults: %d%% (n = %d individuals)\n",
+            prop_adult_pos, n_adult_pos))
+```
+
+```{r child-adult-data}
+adults_summary <- lee_six_nature_2019 %>%
+  dplyr::select(patient, patient_colibactin_pos, age, sex) %>%
+  distinct() %>%
+  mutate(cohort = if_else(age > 18, "adult", "paediatric"))
+
+children_summary <- crypts_attr_left %>%
+  dplyr::select(patient, patient_colibactin_pos, age, sex) %>%
+  distinct() %>%
+  mutate(cohort = if_else(age > 18, "adult", "paediatric"))
+
+compare_adult_children <- bind_rows(children_summary, adults_summary) %>%
+  mutate(cohort = factor(cohort, levels = c("paediatric", "adult")))
+
+count(compare_adult_children, cohort, patient_colibactin_pos)
+```
+
+```{r child-adult-model}
+adult_children_model <- glm(
+  patient_colibactin_pos ~ cohort,
+  data   = compare_adult_children,
+  family = binomial(link = "logit")
+)
+
+pairs(emmeans(adult_children_model, ~ cohort), type = "response")
+```
+
+# Session information
+
+```{r session-info}
+sessionInfo()
 ```

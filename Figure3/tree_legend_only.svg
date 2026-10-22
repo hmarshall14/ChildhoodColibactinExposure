@@ -1,0 +1,47 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' width='720.00pt' height='288.00pt' viewBox='0 0 720.00 288.00'>
+<g class='svglite'>
+<defs>
+  <style type='text/css'><![CDATA[
+    .svglite line, .svglite polyline, .svglite polygon, .svglite path, .svglite rect, .svglite circle {
+      fill: none;
+      stroke: #000000;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-miterlimit: 10.00;
+    }
+    .svglite text {
+      white-space: pre;
+    }
+    .svglite g.glyphgroup path {
+      fill: inherit;
+      stroke: none;
+    }
+  ]]></style>
+</defs>
+<rect width='100%' height='100%' style='stroke: none; fill: #FFFFFF;'/>
+<defs>
+  <clipPath id='cpMC4wMHw3MjAuMDB8MC4wMHwyODguMDA='>
+    <rect x='0.00' y='0.00' width='720.00' height='288.00' />
+  </clipPath>
+</defs>
+<g clip-path='url(#cpMC4wMHw3MjAuMDB8MC4wMHwyODguMDA=)'>
+<polygon points='35.99,128.62 40.05,124.56 35.99,120.50 31.93,124.56 ' style='stroke-width: 0.75; fill: #7EC0EE;' />
+<polygon points='35.99,141.58 40.05,137.52 35.99,133.46 31.93,137.52 ' style='stroke-width: 0.75; fill: #008B00;' />
+<polygon points='35.99,154.54 40.05,150.48 35.99,146.42 31.93,150.48 ' style='stroke-width: 0.75; fill: #FFA500;' />
+<polygon points='35.99,167.50 40.05,163.44 35.99,159.38 31.93,163.44 ' style='stroke-width: 0.75; fill: #666666;' />
+<rect x='364.42' y='121.69' width='5.74' height='5.74' style='stroke-width: 0.75; fill: #CDB79E;' />
+<rect x='364.42' y='134.65' width='5.74' height='5.74' style='stroke-width: 0.75; fill: #CD2990;' />
+<rect x='364.42' y='147.61' width='5.74' height='5.74' style='stroke-width: 0.75; fill: #333333;' />
+<rect x='364.42' y='160.57' width='5.74' height='5.74' style='stroke-width: 0.75; fill: #666666;' />
+<text x='45.71' y='128.43' style='font-size: 10.80px; font-family: "Arial";' textLength='217.86px' lengthAdjust='spacingAndGlyphs'>Earliest possible commencement of exposure</text>
+<text x='45.71' y='141.39' style='font-size: 10.80px; font-family: "Arial";' textLength='88.20px' lengthAdjust='spacingAndGlyphs'>Ongoing exposure</text>
+<text x='45.71' y='154.35' style='font-size: 10.80px; font-family: "Arial";' textLength='180.06px' lengthAdjust='spacingAndGlyphs'>Latest possible cessation of exposure</text>
+<text x='45.71' y='167.31' style='font-size: 10.80px; font-family: "Arial";' textLength='128.41px' lengthAdjust='spacingAndGlyphs'>Indeterminant branch point</text>
+<text x='377.01' y='128.43' style='font-size: 10.80px; font-family: "Arial";' textLength='184.81px' lengthAdjust='spacingAndGlyphs'>SBSBackground [proportion of branch]</text>
+<text x='377.01' y='141.39' style='font-size: 10.80px; font-family: "Arial";' textLength='139.20px' lengthAdjust='spacingAndGlyphs'>SBS88 [proportion of branch]</text>
+<text x='377.01' y='154.35' style='font-size: 10.80px; font-family: "Arial";' textLength='71.59px' lengthAdjust='spacingAndGlyphs'>Truncal branch</text>
+<text x='377.01' y='167.31' style='font-size: 10.80px; font-family: "Arial";' textLength='311.86px' lengthAdjust='spacingAndGlyphs'>Insufficient branch length / SBS88 present in unpruned attribution</text>
+</g>
+</g>
+</svg>

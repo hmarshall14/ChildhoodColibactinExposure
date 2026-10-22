@@ -1,0 +1,1 @@
+Missense	4	56323508	Q:G[CG>TA]G	0

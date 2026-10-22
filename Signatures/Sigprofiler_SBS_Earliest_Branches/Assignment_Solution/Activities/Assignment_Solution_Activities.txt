@@ -1,4 +1,0 @@
-Samples	SBS1	SBS5	SBS18	SBS88	SBS89
-all_patient_branches_less_than_50_max_end_100_unique	2117	3032	0	0	0
-coli_neg_patient_branches_less_than_50_max_end_100_unique	891	1348	0	0	0
-coli_pos_patient_branches_less_than_50_max_end_100_unique	1228	1682	0	0	0

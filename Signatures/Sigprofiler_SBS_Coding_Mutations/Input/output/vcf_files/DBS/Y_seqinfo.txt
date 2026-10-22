@@ -1,2 +1,0 @@
-all_muts_compiled	Y	26578687	N:T[CC>TT]T	-1
-all_non_coding_compiled	Y	26578687	N:T[CC>TT]T	-1

@@ -1,0 +1,52 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' width='1440.00pt' height='720.00pt' viewBox='0 0 1440.00 720.00'>
+<g class='svglite'>
+<defs>
+  <style type='text/css'><![CDATA[
+    .svglite line, .svglite polyline, .svglite polygon, .svglite path, .svglite rect, .svglite circle {
+      fill: none;
+      stroke: #000000;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-miterlimit: 10.00;
+    }
+    .svglite text {
+      white-space: pre;
+    }
+    .svglite g.glyphgroup path {
+      fill: inherit;
+      stroke: none;
+    }
+  ]]></style>
+</defs>
+<rect width='100%' height='100%' style='stroke: none; fill: none;'/>
+<defs>
+  <clipPath id='cpMC4wMHwxNDQwLjAwfDAuMDB8NzIwLjAw'>
+    <rect x='0.00' y='0.00' width='1440.00' height='720.00' />
+  </clipPath>
+</defs>
+<g clip-path='url(#cpMC4wMHwxNDQwLjAwfDAuMDB8NzIwLjAw)'>
+</g>
+<defs>
+  <clipPath id='cpNTkuMDR8MTQwOS43Nnw1OS4wNHw2NDYuNTY='>
+    <rect x='59.04' y='59.04' width='1350.72' height='587.52' />
+  </clipPath>
+</defs>
+<g clip-path='url(#cpNTkuMDR8MTQwOS43Nnw1OS4wNHw2NDYuNTY=)'>
+<polygon points='75.24,328.86 83.70,320.40 75.24,311.94 66.78,320.40 ' style='stroke-width: 0.75; fill: #7EC0EE;' />
+<polygon points='75.24,350.46 83.70,342.00 75.24,333.54 66.78,342.00 ' style='stroke-width: 0.75; fill: #00EE76;' />
+<polygon points='75.24,372.06 83.70,363.60 75.24,355.14 66.78,363.60 ' style='stroke-width: 0.75; fill: #FFA500;' />
+<polygon points='75.24,393.66 83.70,385.20 75.24,376.74 66.78,385.20 ' style='stroke-width: 0.75; fill: #BFBFBF;' />
+<rect x='829.99' y='314.42' width='11.96' height='11.96' style='stroke-width: 0.75; fill: #CD2990;' />
+<rect x='829.99' y='336.02' width='11.96' height='11.96' style='stroke-width: 0.75; fill: #CD2990; fill-opacity: 0.50;' />
+<rect x='829.99' y='357.62' width='11.96' height='11.96' style='stroke-width: 0.75; fill: #CDB79E;' />
+<text x='91.44' y='326.84' style='font-size: 18.00px; font-family: "Arial";' textLength='371.25px' lengthAdjust='spacingAndGlyphs'>Earliest Possible Commencement of Exposure</text>
+<text x='91.44' y='348.44' style='font-size: 18.00px; font-family: "Arial";' textLength='252.55px' lengthAdjust='spacingAndGlyphs'>Timepoint of Ongoing Exposure</text>
+<text x='91.44' y='370.04' style='font-size: 18.00px; font-family: "Arial";' textLength='308.23px' lengthAdjust='spacingAndGlyphs'>Latest Possible Cessation of Exposure</text>
+<text x='91.44' y='391.64' style='font-size: 18.00px; font-family: "Arial";' textLength='728.33px' lengthAdjust='spacingAndGlyphs'>Indeterminant Timepoint [Insufficient branch length / SBS88 present in unpruned attribution]</text>
+<text x='852.17' y='326.84' style='font-size: 18.00px; font-family: "Arial";' textLength='161.11px' lengthAdjust='spacingAndGlyphs'>First positive branch</text>
+<text x='852.17' y='348.44' style='font-size: 18.00px; font-family: "Arial";' textLength='222.22px' lengthAdjust='spacingAndGlyphs'>Subsequent positive branch</text>
+<text x='852.17' y='370.04' style='font-size: 18.00px; font-family: "Arial";' textLength='212.20px' lengthAdjust='spacingAndGlyphs'>Colibactin negative branch</text>
+</g>
+</g>
+</svg>

@@ -1,0 +1,1 @@
+Missense	1	216325540	CGGC>TGGT

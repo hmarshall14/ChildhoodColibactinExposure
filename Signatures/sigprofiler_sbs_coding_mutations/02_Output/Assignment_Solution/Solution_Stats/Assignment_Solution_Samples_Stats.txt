@@ -1,0 +1,7 @@
+Sample Names	Total Mutations	Cosine Similarity	L1 Norm	L1_Norm_%	L2 Norm	L2_Norm_%	KL Divergence	Correlation
+All_mutations	685953	0.993	109525.47	15.967%	15999.892	12.139%	0.02765	0.99
+Essential_Splice	118	0.628	144.226	122.225%	26.753	78.959%	1.19377	0.559
+Missense	4981	0.956	1992.284	39.998%	386.943	30.033%	0.12867	0.948
+Nonsense	316	0.868	231.388	73.224%	42.948	49.698%	0.55548	0.845
+Stop_loss	5	0.263	9.231	184.62%	2.158	96.509%	2.98402	0.14
+Synonymous	2047	0.973	871.598	42.579%	150.214	23.39%	0.18849	0.969

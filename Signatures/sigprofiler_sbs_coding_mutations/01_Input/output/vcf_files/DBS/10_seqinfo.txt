@@ -1,0 +1,1 @@
+Missense	10	106672878	U:G[CT>GG]G	-1

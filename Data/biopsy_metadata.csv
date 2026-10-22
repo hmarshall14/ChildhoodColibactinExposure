@@ -122,32 +122,32 @@ PD68023,PD68023b,13,Female,IBD,UK,New IBD Diagnosis,CD,CD,Nil,Ascending,Right
 PD68023,PD68023c,13,Female,IBD,UK,New IBD Diagnosis,CD,CD,Nil,Sigmoid,Left
 PD68025,PD68025b,12,Female,IBD,UK,New IBD Diagnosis,CD,CD,Nil,Ascending,Right
 PD68026,PD68026b,9,Female,IBD,UK,New IBD Diagnosis,UC,UC,Nil,Ascending,Right
-PD69082,PD69082b,13.86,Female,Normal,Denmark,Irritable Bowel Syndrome,Histologically_Normal,Histologically_Normal,Nil,Transverse,Right
-PD69083,PD69083b,14.24,Female,Normal,Denmark,Functional abdominal pain,Histologically_Normal,Histologically_Normal,Nil,Transverse,Right
-PD69084,PD69084b,13.84,Male,Normal,Denmark,Functional abdominal pain,Histologically_Normal,Histologically_Normal,Nil,Transverse,Right
-PD69085,PD69085b,8.52,Female,Normal,Denmark,Functional abdominal pain,Histologically_Normal,Histologically_Normal,Nil,Transverse,Right
-PD69086,PD69086b,7.59,Male,Normal,Denmark,Juvenile polyp,Juvenile Polyp,Juvenile Polyp,Nil,Transverse,Right
-PD69086,PD69086d,7.59,Male,Normal,Denmark,Juvenile polyp,Juvenile Polyp,Juvenile Polyp,Nil,Caecum,Right
-PD69086,PD69086e,7.59,Male,Normal,Denmark,Juvenile polyp,Juvenile Polyp,Juvenile Polyp,Nil,Sigmoid,Left
-PD69086,PD69086f,7.59,Male,Normal,Denmark,Juvenile polyp,Juvenile Polyp,Juvenile Polyp,Nil,Rectum,Left
-PD69087,PD69087b,17,Female,Normal,Denmark,Irritable Bowel Syndrome,Histologically_Normal,Histologically_Normal,Nil,Transverse,Right
-PD69088,PD69088b,13.14,Male,Normal,Denmark,Obstipation,Histologically_Normal,Histologically_Normal,Nil,Transverse,Right
-PD69089,PD69089b,17.41,Male,Normal,Denmark,Functional abdominal pain,Histologically_Normal,Histologically_Normal,Nil,Transverse,Right
-PD69090,PD69090b,10.98,Female,Normal,Denmark,Infection,Infection,Infection,Nil,Transverse,Right
-PD69091,PD69091b,12.19,Female,Normal,Denmark,Unknown,CD,CD,Nil,Transverse,Right
-PD69094,PD69094b,15.88,Female,Normal,Denmark,Unknown,Histologically_Normal,Histologically_Normal,Nil,Transverse,Right
-PD69095,PD69095b,1.68,Male,Normal,Denmark,Juvenile polyp,Juvenile Polyp,Juvenile Polyp,Nil,Transverse,Right
-PD69095,PD69095c,1.68,Male,Normal,Denmark,Lymphocytic gastritis,Lymphocytic gastritis,Lymphocytic gastritis,Nil,Terminal Ileum,Right
-PD69095,PD69095d,1.68,Male,Normal,Denmark,Lymphocytic gastritis,Lymphocytic gastritis,Lymphocytic gastritis,Nil,Caecum,Right
-PD69095,PD69095e,1.68,Male,Normal,Denmark,Lymphocytic gastritis,Lymphocytic gastritis,Lymphocytic gastritis,Nil,Rectum,Left
-PD69096,PD69096b,13.44,Female,Normal,Denmark,Lymphocytic gastritis,Lymphocytic gastritis,Lymphocytic gastritis,Nil,Transverse,Right
-PD69097,PD69097b,2.59,Female,Normal,Denmark,Unknown,Histologically_Normal,Histologically_Normal,Nil,Transverse,Right
-PD69098,PD69098c,2.39,Male,Normal,Denmark,Juvenile polyp,Juvenile Polyp,Juvenile Polyp,Nil,Terminal Ileum,Right
-PD69098,PD69098d,2.39,Male,Normal,Denmark,Juvenile polyp,Juvenile Polyp,Juvenile Polyp,Nil,Caecum,Right
-PD69098,PD69098e,2.39,Male,Normal,Denmark,Juvenile polyp,Juvenile Polyp,Juvenile Polyp,Nil,Sigmoid,Left
-PD69098,PD69098f,2.39,Male,Normal,Denmark,Juvenile polyp,Juvenile Polyp,Juvenile Polyp,Nil,Rectum,Left
-PD69099,PD69099c,5.8,Female,Normal,Denmark,Unknown,Unknown,Other,Nil,Terminal Ileum,Right
-PD69099,PD69099d,5.8,Female,Normal,Denmark,Unknown,Unknown,Other,Nil,Caecum,Right
-PD69099,PD69099e,5.8,Female,Normal,Denmark,Unknown,Unknown,Other,Nil,Sigmoid,Left
-PD69099,PD69099f,5.8,Female,Normal,Denmark,Unknown,Unknown,Other,Nil,Rectum,Left
-PD69100,PD69100b,6.68,Male,Normal,Denmark,Irritable Bowel Syndrome,Histologically_Normal,Histologically_Normal,Nil,Transverse,Right
+PD69082,PD69082b,13.86,Female,Normal,Denmark,Evaluation IBD,Histologically_Normal,Histologically_Normal,Nil,Transverse,Right
+PD69083,PD69083b,14.24,Female,Normal,Denmark,Evaluation IBD,Histologically_Normal,Histologically_Normal,Nil,Transverse,Right
+PD69084,PD69084b,13.84,Male,Normal,Denmark,Evaluation IBD,Histologically_Normal,Histologically_Normal,Nil,Transverse,Right
+PD69085,PD69085b,8.52,Female,Normal,Denmark,Evaluation IBD,Histologically_Normal,Histologically_Normal,Nil,Transverse,Right
+PD69086,PD69086b,7.59,Male,Normal,Denmark,Evaluation IBD,Juvenile Polyp,Juvenile Polyp,Nil,Transverse,Right
+PD69086,PD69086d,7.59,Male,Normal,Denmark,Evaluation IBD,Juvenile Polyp,Juvenile Polyp,Nil,Caecum,Right
+PD69086,PD69086e,7.59,Male,Normal,Denmark,Evaluation IBD,Juvenile Polyp,Juvenile Polyp,Nil,Sigmoid,Left
+PD69086,PD69086f,7.59,Male,Normal,Denmark,Evaluation IBD,Juvenile Polyp,Juvenile Polyp,Nil,Rectum,Left
+PD69087,PD69087b,17,Female,Normal,Denmark,Evaluation IBD,Histologically_Normal,Histologically_Normal,Nil,Transverse,Right
+PD69088,PD69088b,13.14,Male,Normal,Denmark,Evaluation IBD,Histologically_Normal,Histologically_Normal,Nil,Transverse,Right
+PD69089,PD69089b,17.41,Male,Normal,Denmark,Evaluation IBD,Histologically_Normal,Histologically_Normal,Nil,Transverse,Right
+PD69090,PD69090b,10.98,Female,Normal,Denmark,Evaluation IBD,Infection,Infection,Nil,Transverse,Right
+PD69091,PD69091b,12.19,Female,Normal,Denmark,Evaluation IBD,CD,CD,Nil,Transverse,Right
+PD69094,PD69094b,15.88,Female,Normal,Denmark,Evaluation IBD,Histologically_Normal,Histologically_Normal,Nil,Transverse,Right
+PD69095,PD69095b,1.68,Male,Normal,Denmark,Evaluation IBD,Juvenile Polyp,Juvenile Polyp,Nil,Transverse,Right
+PD69095,PD69095c,1.68,Male,Normal,Denmark,Evaluation IBD,Juvenile Polyp,Juvenile Polyp,Nil,Terminal Ileum,Right
+PD69095,PD69095d,1.68,Male,Normal,Denmark,Evaluation IBD,Juvenile Polyp,Juvenile Polyp,Nil,Caecum,Right
+PD69095,PD69095e,1.68,Male,Normal,Denmark,Evaluation IBD,Juvenile Polyp,Juvenile Polyp,Nil,Rectum,Left
+PD69096,PD69096b,13.44,Female,Normal,Denmark,Evaluation IBD,Lymphocytic gastritis,Lymphocytic gastritis,Nil,Transverse,Right
+PD69097,PD69097b,2.59,Female,Normal,Denmark,Evaluation IBD,Histologically_Normal,Histologically_Normal,Nil,Transverse,Right
+PD69098,PD69098c,2.39,Male,Normal,Denmark,Evaluation IBD,Juvenile Polyp,Juvenile Polyp,Nil,Terminal Ileum,Right
+PD69098,PD69098d,2.39,Male,Normal,Denmark,Evaluation IBD,Juvenile Polyp,Juvenile Polyp,Nil,Caecum,Right
+PD69098,PD69098e,2.39,Male,Normal,Denmark,Evaluation IBD,Juvenile Polyp,Juvenile Polyp,Nil,Sigmoid,Left
+PD69098,PD69098f,2.39,Male,Normal,Denmark,Evaluation IBD,Juvenile Polyp,Juvenile Polyp,Nil,Rectum,Left
+PD69099,PD69099c,5.8,Female,Normal,Denmark,Evaluation IBD,Histologically_Normal,Histologically_Normal,Nil,Terminal Ileum,Right
+PD69099,PD69099d,5.8,Female,Normal,Denmark,Evaluation IBD,Histologically_Normal,Histologically_Normal,Nil,Caecum,Right
+PD69099,PD69099e,5.8,Female,Normal,Denmark,Evaluation IBD,Histologically_Normal,Histologically_Normal,Nil,Sigmoid,Left
+PD69099,PD69099f,5.8,Female,Normal,Denmark,Evaluation IBD,Histologically_Normal,Histologically_Normal,Nil,Rectum,Left
+PD69100,PD69100b,6.68,Male,Normal,Denmark,Evaluation IBD,Histologically_Normal,Histologically_Normal,Nil,Transverse,Right

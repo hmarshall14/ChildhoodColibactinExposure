@@ -1,0 +1,2 @@
+Missense	14	41886911	Q:C[GC>AT]T	0
+Missense	14	73244740	Q:G[CG>TA]C	0

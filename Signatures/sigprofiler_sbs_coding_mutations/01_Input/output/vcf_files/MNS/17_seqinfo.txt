@@ -1,0 +1,1 @@
+Missense	17	36595094	GTAG>TTAT

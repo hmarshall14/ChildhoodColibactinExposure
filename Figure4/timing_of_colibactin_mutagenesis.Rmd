@@ -1,533 +1,1127 @@
 ---
 title: "Timing of colibactin mutagenesis"
-output: html_notebook
+author: "ADD AUTHOR NAME"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  github_document:
+    toc: true
+    toc_depth: 3
 ---
-R notebook for analyses associated with results section 'Timing of colibactin mutagenesis' in Marshall et al. Common early-life exposure of the colorectal epithelium to the microbiome-derived mutagen colibactin
 
-```{r}
-library(ape)
-library(dplyr)
-library(ggtree)
-library(forcats)
-library(ggplot2)
-library(stringr)
-library(tidyverse)
-library(googlesheets4)
+<!--
+Analysis code for the results section 'Timing of colibactin mutagenesis' in
+Marshall et al., "Common early-life exposure of the colorectal epithelium to
+the microbiome-derived mutagen colibactin".
+
+Branches of each crypt phylogeny are annotated by signature attribution, and
+the background mutation clock is used to convert branch start/end points into
+donor ages. From these, timepoints of commencement, continuation and cessation
+of colibactin exposure are derived.
+
+The same pipeline is run twice: once on the paediatric cohort and once on the
+adult cohort of Lee-Six et al., Nature, 2019. In the original notebook that
+meant the whole script was copy-pasted, with the second copy silently
+overwriting the objects created by the first. Here every step is a function
+defined once in "Shared pipeline" below, and each run writes to its own
+`paed_*` / `lee_six_*` objects.
+-->
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo       = TRUE,
+  message    = FALSE,
+  warning    = FALSE,
+  comment    = "#>",
+  fig.path   = "../Figures/",
+  fig.width  = 7,
+  fig.height = 4,
+  dpi        = 300
+)
+
+set.seed(42)
 ```
 
-```{r}
-crypt_signature_attributions<-read.csv('../Data/crypt_signature_attributions.csv')
-crypt_metadata<-read.csv('../Data/biopsy_metadata.csv')
+## Dependencies
+
+```{r libraries}
+library(tidyverse)  # dplyr, tidyr, purrr, stringr, forcats, tibble, ggplot2
+library(ape)        # read.tree
+library(ggtree)     # fortify() for phylo objects
+library(ggsignif)   # geom_signif, used in the indel comparison
+library(svglite)    # svglite() device for vector figure output
 ```
 
-## a : construct pileup to facilitate timing analysis:
-```{r compute_branch_sens}
-## compute_branch_sens computes per branch sensitivities based off coverage and median vaf
+```{r paths}
+fig_dir      <- file.path("..", "Figure3")
+supp_fig_dir <- file.path("..", "Supplementary_Figures")
+data_dir     <- file.path("..", "Data")
+
+for (d in c(fig_dir, supp_fig_dir)) {
+  if (!dir.exists(d)) dir.create(d, recursive = TRUE)
+}
+```
+
+# Shared pipeline
+
+Every function below is used by both the paediatric and the Lee-Six run. The
+cohort-specific differences are passed in as arguments and are listed, with the
+values used, in the two run sections that follow.
+
+## Branch sensitivity
+
+A branch is detectable if at least one descendant crypt is detectable, so
+sensitivity propagates up the tree as `1 - prod(1 - sens_children)`.
+
+```{r fn-compute-branch-sens}
 compute_branch_sens <- function(tree, tip_sens) {
-  Ntip  <- Ntip(tree)
-  Nnode <- tree$Nnode
-  sens <- rep(NA_real_, Ntip + Nnode)
-  
-  # match tip sensitivities to tip order
-  sens[1:Ntip] <- tip_sens[tree$tip.label,]
-  
-  po <- reorder.phylo(tree, "postorder")
-  edges <- po$edge
-  
+  n_tip  <- Ntip(tree)
+  n_node <- tree$Nnode
+  sens   <- rep(NA_real_, n_tip + n_node)
+
+  # tip sensitivities, in the tree's own tip order
+  sens[seq_len(n_tip)] <- tip_sens[tree$tip.label, 1]
+
+  edges <- reorder.phylo(tree, "postorder")$edge
+
+  # postorder guarantees that every child is reached before its parent
   for (i in seq_len(nrow(edges))) {
-    parent <- edges[i, 1]
-    children <- edges[edges[,1] == parent, 2]
-    
+    parent   <- edges[i, 1]
+    children <- edges[edges[, 1] == parent, 2]
+
     if (all(!is.na(sens[children]))) {
       sens[parent] <- 1 - prod(1 - sens[children])
     }
   }
-  return(sens)  # named by node index implicitly
-}
 
+  sens  # indexed by node number
+}
 ```
 
-```{r construct pileup of nodes for each crypt}
-##
-tip_sens<-crypt_signature_attributions%>%
-  dplyr::select(sample, sensitivitySBS)%>%
-  column_to_rownames(var='sample')
+## Crypt pileup
 
-# initiate a data frame for crypt pileup
-dir='../snv_phylogenetic_trees/'
-patients=list.files(dir)
-crypt_pileup=NULL
-sens_edge_compiled=NULL
+For each crypt, walk from its tip to the root and stack the branches it passes
+through. The result is one row per crypt per ancestral branch.
 
-for (patient in patients){
-  if (file.exists(paste0(dir,patient,"/",patient,".tree_with_branch_length.tree"))){
-  tree = read.tree(paste0(dir,patient,"/",patient,".tree_with_branch_length.tree"))
-  
-  # adjust branch lengths for sensitivity :
-  sens_vec <- compute_branch_sens(tree, tip_sens)
-  sens_df <- data.frame(node = seq_along(sens_vec),sens = sens_vec)
-  edge_df <- as.data.frame(tree$edge)
-  
-  colnames(edge_df) <- c("parent", "child")
-  edge_df <- merge(edge_df, sens_df,  by.x = "child", by.y = "node",  all.x = TRUE)%>%
-    mutate(sens=replace_na(sens,1))
-  edge_df$Samples=paste0(patient,'_',edge_df$child)
-  sens_edge_compiled<-rbind(sens_edge_compiled,edge_df)
+```{r fn-crypt-pileup}
+# Collect the branches on the path from one tip back to the root.
+walk_to_root <- function(tree_df, crypt_label) {
+  current <- tree_df[which(tree_df$label == crypt_label & !is.na(tree_df$label)), ]
+  path    <- current
 
-  tree_df=ggtree::fortify(tree)
-  
-  # pile up branches for each crypt :
-  crypts=unique(tree_df$label)
-  crypts=crypts[!is.na(crypts)]
-  crypts=crypts[str_detect(crypts,'PD')]
-  for (n in 1:length(crypts)){
-    crypt=crypts[n]
-    
-    end_branch=tree_df[tree_df$label==crypt&!is.na(tree_df$label),]
-    branch_pileup=end_branch
-    branch=end_branch
-    while (branch$node!=branch$parent){
-      new_node=branch$parent
-      new_branch=tree_df[tree_df$node==new_node,]
-      branch_pileup<-rbind(branch_pileup,new_branch)
-      branch=new_branch
-    }
-    branch_pileup$crypt=crypt
-  
-  crypt_pileup=rbind(crypt_pileup,branch_pileup)
+  while (current$node != current$parent) {
+    current <- tree_df[tree_df$node == current$parent, ]
+    path    <- rbind(path, current)
   }
-  } else { crypt_pileup= crypt_pileup }
+
+  path
 }
 
+# Build the pileup across every patient tree in `tree_dir`, together with the
+# per-branch sensitivities. Patients without a tree file are skipped.
+build_crypt_pileup <- function(tree_dir, tip_sens, crypt_pattern = "PD|HLS|O|\\_") {
+  patients   <- list.files(tree_dir)
+  pileups    <- list()
+  sens_edges <- list()
 
-crypt_pileup$patient=str_extract(crypt_pileup$crypt,'PD\\d{5}')
-crypt_pileup$biopsy=str_extract(crypt_pileup$crypt,'PD\\d{5}\\w')
-crypt_pileup$branch_id=paste(crypt_pileup$patient,crypt_pileup$node,sep="_")
-crypt_pileup<-crypt_pileup%>%filter(!duplicated(paste0(crypt,branch_id)))
-sens_edge_compiled<-sens_edge_compiled%>% dplyr::select(-parent,-child)
-```
+  for (patient in patients) {
+    tree_file <- file.path(tree_dir, patient,
+                           paste0(patient, ".tree_with_branch_length.tree"))
+    if (!file.exists(tree_file)) next
 
-## b : construct a dataframe for timing analysis
-### i : adjust mutational signature attributions for the sensitivity for each branch
-```{r}
-## load in signature attribution to each branch branches attribution :
-msa_branches<-read.csv('../Signatures/MSA_Attribution/pruned_attribution_paediatric_branches_SBS_abs_mutations.csv')%>%
-  rename_with(.,~paste0(.x,'_branch'))
+    tree     <- read.tree(tree_file)
+    sens_vec <- compute_branch_sens(tree, tip_sens)
 
-## construct a dataframe with signature attributions adjusted :
-crypt_branch<-crypt_pileup %>% dplyr::select(biopsy, crypt, branch_id)
-signature_attributions_compiled<-left_join(crypt_branch,msa_branches,by=c('branch_id'='X_branch')) %>%
-  left_join(sens_edge_compiled,by=c('branch_id'='Samples'))%>%
-  mutate(sens=replace_na(sens,1))%>%
-  mutate(across(everything(), ~replace_na(.x,0)))%>%
-  mutate(across(contains('SBS'),~round(.x,digits=3)),
-         across(contains('SBS'), ~.x / sens))
-```
+    sens_edges[[patient]] <- as.data.frame(tree$edge) %>%
+      setNames(c("parent", "child")) %>%
+      left_join(tibble(child = seq_along(sens_vec), sens = sens_vec), by = "child") %>%
+      mutate(
+        sens    = replace_na(sens, 1),
+        Samples = paste0(patient, "_", child)
+      ) %>%
+      dplyr::select(Samples, sens)
 
-### ii : annotate the branches with sbs signature counts
-```{r }
-## begin with the crypt pileup and combine with the attributions df :
-crypt_pileup_sig_annotated<-left_join(x=crypt_pileup, y=signature_attributions_compiled, by=c('biopsy','crypt','branch_id'))
-positive_biopsies<-crypt_signature_attributions%>%
-  dplyr::select(biopsy,biopsy_colibactin_pos,patient_colibactin_pos)%>%
-  unique()
+    tree_df <- ggtree::fortify(tree)
 
-crypt_pileup_sig_annotated<-left_join(crypt_pileup_sig_annotated,positive_biopsies,by='biopsy')
+    crypts <- tree_df$label %>%
+      unique() %>%
+      discard(is.na) %>%
+      keep(~ str_detect(.x, crypt_pattern))
 
-#crypt_pileup_sig_annotated_current_results <-crypt_pileup_sig_annotated  
-## load in patient metadata
-age_df=crypt_metadata%>%dplyr::select(patient,age)%>%unique()
-colnames(age_df)<-c('patient','Age')
-
-## construct a dataframe for creating relevant data time points :
-crypt_pileup_sig_annotated=crypt_pileup_sig_annotated%>%
-  
-  # zero truncal mutations :
-  mutate(across(contains("SBS"), ~ replace_na(.x, 0)), # these are typically the root branches 
-    muts_assigned=rowSums(pick(contains('_branch'))),
-    across(contains('_branch'),~ifelse(muts_assigned>branch.length,(.x/muts_assigned)*branch.length,.x)),
-    across(contains("_branch"),~ if_else(branch.length <= 50 & x<50, 0, .x)),
-         SBSUnassigned = branch.length - rowSums(pick(contains('_branch'))))%>%
-  
-  arrange(crypt, x)%>%
-  group_by(crypt)%>%
-  
-  # calculate the background mutaitons for a given branch
-  mutate(background_muts_branch = SBS1_branch+SBS5_branch+SBS18_branch+SBSUnassigned) %>%
-  
-  # calculcate the total background mutations for the start and end points of a branch 
-  mutate(background_muts_branch_end_msa  = cumsum(background_muts_branch),
-         background_muts_branch_start_msa = background_muts_branch_end_msa - background_muts_branch) %>%
-  
-  
-  # calculate the total mutations for the end of the branch and total background mutation for a crypt
-  mutate(all_muts_count_branch_end_msa = cumsum(background_muts_branch + SBS88_branch),
-         background_muts_crypt_total_msa = sum(background_muts_branch)) %>%
-  ungroup() 
-```
-
-create confidence intervals for the breakpoints in each phylogenetic trees
-to create confidence intervals, we perform a poisson test for the number of brackground
-mutations preceding that branch point against the total number of mutations for that crypt
-```{r}
-## create confidence intervals :
-branch_end_ci_mat<-t(mapply(function(x,n){
-  pt=poisson.test(round(x,digits=0),round(n,digits=0))
-  conf.intv=pt$conf.int * n},
-  x=crypt_pileup_sig_annotated$background_muts_branch_end_msa,
-  n=crypt_pileup_sig_annotated$background_muts_crypt_total_msa))
-
-colnames(branch_end_ci_mat)<-c('background_muts_branch_end_lower_ci','background_muts_branch_end_upper_ci')
-
-branch_start_ci_mat<-t(mapply(function(x,n){
-  pt=poisson.test(round(x,digits=0),round(n,digits=0))
-  conf.intv=pt$conf.int * n},
-x=crypt_pileup_sig_annotated$background_muts_branch_start_msa,
-n=crypt_pileup_sig_annotated$background_muts_crypt_total_msa))
-
-colnames(branch_start_ci_mat)<-c('background_muts_branch_start_lower_ci','background_muts_branch_start_upper_ci')
-
-crypt_pileup_sig_annotated<-cbind(crypt_pileup_sig_annotated,branch_start_ci_mat,branch_end_ci_mat)
-```
-
-determine per crypt rates of background mutations
-```{r}
-## select age for each biopsy
-age_df<-unique(subset(crypt_metadata,names=c('biopsy','age')))
-
-## determine background mutation rates
-background_mut_rates<-crypt_pileup_sig_annotated%>%
-  dplyr::select(biopsy,crypt,background_muts_crypt_total_msa)%>%
-  unique()%>%
-  left_join(.,age_df,by=c('biopsy'='biopsy'))%>%
-  mutate(background_muts_rate_msa=background_muts_crypt_total_msa/age)%>%
-  dplyr::select(crypt,background_muts_rate_msa,age)
-```
-
-```{r}
-crypt_pileup_classification<-crypt_pileup_sig_annotated %>%
-  left_join(unpruned_weights,by=c('branch_id'='Sample'))%>%
-  # identify negative branches that follow positive branches
-  group_by(crypt) %>%
-  mutate(branch_status=case_when(branch.length <= 50 & x<50~'Truncal',
-                                 sum(SBS88_branch > 0) ==0~'Negative Crypt',
-                                 sum(SBS88_branch > 0) > 0 & cumsum(SBS88_branch>0)==0~'Pre exposure',
-                                 cumsum(SBS88_branch>0)==1 & SBS88_branch>0~'First positive branch',
-                                 cumsum(SBS88_branch>0)>1 & SBS88_branch>0~'Second positive branch',
-                                 cumsum(SBS88_branch>0)>0 & SBS88_branch==0 & SBS88_unpruned==0&branch.length>80~'Post cessation branch',
-                                 (cumsum(SBS88_branch>0)>0 & SBS88_branch==0) & (SBS88_unpruned>0 | branch.length<80)~'Post cessation branch - Indeterminant',
-                                 TRUE~'other')
-                                 
-                                 )%>%
-  left_join(background_mut_rates, by = "crypt") %>%
-  #left_join(id_burdens, by ='branch_id',fill) %>%
-  mutate(
-    #id_burden=replace_na(id_burden,0),
-         across(contains('background_muts_branch'), ~.x/ background_muts_rate_msa,.names='age_{.col}'),
-         branch_duration=age_background_muts_branch_end_msa - age_background_muts_branch_start_msa,
-         #id_rate=id_burden/branch_duration
-         )
-```
-
-```{r}
-crypt_classification_long<-crypt_pileup_classification%>%
-  dplyr::select(patient,crypt,branch_id, branch_status,age_background_muts_branch_start_msa,age_background_muts_branch_end_msa,age)%>%
-  filter(branch_status%in%c('First positive branch','Second positive branch','Post cessation branch'))%>%
-  group_by(branch_id)%>%
-  mutate(age_background_muts_branch_start_msa=min(age_background_muts_branch_start_msa),
-         age_background_muts_branch_end_msa=min(age_background_muts_branch_end_msa))%>%
-  ungroup()%>%
-  pivot_longer(cols=contains('age'))%>%
-  mutate(timepoint=case_when(branch_status=='First positive branch'&name=='age_background_muts_branch_start_msa'~'age_earliest_commencement',
-                             branch_status=='First positive branch'&name=='age_background_muts_branch_end_msa'~'age_latest_commencement',
-                             branch_status=='Second positive branch'&name=='age_background_muts_branch_start_msa'~'age_continuation',
-                             branch_status=='Post cessation branch'&name=='age_background_muts_branch_start_msa'~'age_cessation',
-                             branch_status=='First positive branch'&name=='age'~'donor_age',
-                             .default='Other'
-                             ))%>%
-  filter(timepoint!='Other')%>%
-  dplyr::select(-branch_id)%>%
-  dplyr::select(patient,crypt,timepoint,value)%>%
-  group_by(crypt)%>%
-  filter(sum(timepoint=='age_cessation'|timepoint=='age_continuation')>0) # subset only those crypts with informative timepoints
-
-patient_order <- crypt_classification_long %>%
-  filter(timepoint=='donor_age')%>%
-  group_by(patient) %>%
-  summarise(donor_age = median(value, na.rm = TRUE), .groups = "drop") %>%
-  arrange(desc(donor_age))
-
-
-swimmers_crypt_order<-crypt_classification_long%>%
-  filter(!duplicated(crypt))%>%
-  mutate(patient_f = factor(patient, levels = patient_order$patient))%>%
-  arrange(patient_f, desc(age)) %>%
-  group_by(patient_f) %>%
-  mutate(ypos = seq(1.5, by = 0.5, length.out = n())) %>%
-  ungroup()%>%
-  dplyr::select(crypt,ypos)
-
-
-earliest_commencement<-crypt_classification_long%>%
-  filter(timepoint=='age_earliest_commencement')%>%
-  dplyr::select(crypt,value)
-colnames(earliest_commencement)<-c('crypt','age_earliest_commencement')
-
-swimmers_crypt_df <- crypt_classification_long %>%
-  left_join(patient_order)%>%
-  left_join(swimmers_crypt_order)%>%
-  left_join(earliest_commencement,by=c('crypt'))%>%
-  mutate(patient_f = factor(patient, levels = patient_order$patient))%>%
-  arrange(patient_f, desc(age))%>%
-  filter(!timepoint%in%c('donor_age','age_latest_commencement'))
-
-## create dataframe for the bar plot :
-crypt_bar_plot<-swimmers_crypt_df%>%
-  dplyr::select(patient,patient_f,crypt,donor_age,crypt,timepoint,value,starts_with('age_'),ypos)%>%
-  #filter(timepoint!=age_latest_commencement)%>%
-  #dplyr::select(-contains('latest_crypt_commencement'))%>%
-  #mutate(earliest_possible_commencement=age_crypt_earliest_commencement_msa_min)%>%
-  filter(!is.na(value))%>%
-  dplyr::select(patient,patient_f, crypt,donor_age, age_earliest_commencement,
-         timepoint,value,ypos)
-
-```
-
-
-## c : plot swimmers plot:
-```{r}
-## create the swimmers plot for the timepoints of active and ceased exposure :
-png('~/crypt_by_crypt_swimmers_plot.png',width=2800,height=1600,res=300, bg='transparent')
-
-ggplot(crypt_bar_plot, aes(y = ypos)) +
-  geom_segment(
-    aes(x = 0, xend = donor_age, yend = ypos),   color = "grey80",size=1.7) +
-  theme_classic()+
-  
-  ## plot bar for active period :
-  geom_segment(
-    aes(x = age_earliest_commencement, xend = value, yend = ypos),
-    col = 'maroon4',  alpha=1,size=1.7) +
-  
-  ## plot bar for continuation befond point :
-  geom_segment(data=crypt_bar_plot[crypt_bar_plot$timepoint=='age_continuation',],
-    aes(x = value, xend = donor_age,  yend = ypos), col = 'maroon4', alpha=0.5,size=1.7) +
-  
-  
-scale_alpha_manual(
-  values = c(
-    "First positive branch" = 1,
-    "Subsequent positive branch" = 0.3
-  )
-) +
-  
-  
-  ## add points for commmencement / cessation :
-  geom_point(data=crypt_bar_plot[crypt_bar_plot$timepoint%in%c('age_earliest_commencement','age_cessation','age_continuation'),],
-  aes(x = value,
-      y = ypos,
-      colour='black',fill = timepoint),
-      size = 3.5, colour='black', shape=23,alpha=0.9,stroke=0.5, na.rm = TRUE) +
-  
-  #facet_grid(pdid_f ~ ., scales = "free_y", space = "free_y")+
-  scale_fill_manual(breaks = c(
-    "age_continuation",
-    "age_cessation",
-    "age_earliest_commencement"
-  ),
-  values = c(
-    "age_continuation" = "green4",   
-    "age_cessation" = "orange1",
-    "age_earliest_commencement"='skyblue2'
-    
-  ),
-  labels = c(
-    "age_continuation" = "Known Timepoint of Ongoing Exposure",
-    "age_cessation" = "Latest Possible Cessation",
-    "age_earliest_commencement"="Earliest Possible Commencement")
-  ) +
-  
-  labs(y='Colonic Crypts Grouped by Donor', x='Window for exposure [years]')+
-  facet_grid(patient_f~.,scales='free',space='free_y')+
-  scale_x_continuous(breaks = seq(0, 20, 5),minor_breaks = seq(0, 20, 1), expand = expansion(mult = c(0.01, 0.02)))+
-  
-  coord_cartesian(clip = "off") +
-  theme(axis.text.y=element_blank(),
-        axis.ticks.y = element_blank(),
-        strip.background = element_blank(),
-        strip.text = element_blank(),
-        legend.position='bottom',
-        legend.title = element_blank()
-        )
-
-dev.off()
-
-legend_df <- data.frame(
-  x = 1,
-  y = c(2, 1),
-  branch = c("First positive branch",
-             "Subsequent positive branch"),
-  alpha = c(1, 0.3)
-)
-
-ggplot(legend_df) +
-  geom_segment(
-    aes(
-      x = 0,
-      xend = 1,
-      y = y,
-      yend = y,
-      alpha = branch
-    ),
-    colour = "maroon4",
-    linewidth = 2
-  ) +
-  scale_alpha_manual(
-    values = c(
-      "First positive branch" = 1,
-      "Subsequent positive branch" = 0.3
+    pileups[[patient]] <- map_dfr(
+      crypts,
+      ~ walk_to_root(tree_df, .x) %>% mutate(crypt = .x)
     )
-  ) +
-  theme_void() +
-  theme(
-    legend.text=element_text(size=9)
+  }
+
+  list(
+    pileup     = bind_rows(pileups),
+    sens_edges = bind_rows(sens_edges)
   )
-dev.off()
-
-### iii : create a plot for the legend :
-```{r}
-## create dataframe for plotting
-legend_df<-data.frame(
-  colour=c('skyblue2',"green4",'orange1','grey80',NA),
-  timepoint=c('Earliest Possible Commencement of Exposure', 
-             'Timepoint of Ongoing Exposure',
-             'Latest Possible Cessation of Exposure',
-             'Lifespan of Individual',
-             '95% Confidence Interval for Timepoint'),
-  shape=c(23,23,23,22,NA),
-  lty=c(NA,NA,NA,NA,1)
-)
-
-## create plot
-svg(file = paste0("~/phylogenetic_tree_legend.svg"), height=10,width=20,bg='transparent')
-
-plot.new()                               
-legend("left", 
-       legend = legend_df$timepoint, 
-       pch = legend_df$shape, 
-       pt.bg = legend_df$colour, 
-       lty = legend_df$lty, 
-       col    = 'black', 
-       pt.cex = 2.5, l
-       wd=2, 
-       bty = "n",
-       cex    = 1.5,
-       ncol   = 2)
-dev.off()
-```
-## c : calculate summary statistics:
-```{r}
-## number of individuals with informative time points :
-length(unique(crypt_bar_plot$patient)) # n = 32
+}
 ```
 
-determine patient level summaries for commencement of exposure :
-```{r}
-## summary for timings of exposure :
-crypt_bar_plot%>%
-  group_by(patient)%>%
-  filter(timepoint %in% c('age_cessation','age_continuation'))%>% # we derive the latest commencement from end of first branch
-  filter(value==min(value))%>% # filter per patient for the first of these
-  ungroup()%>%
-  dplyr::select(patient,age_earliest_commencement,value)%>%
-  rename(latest_possible_commencement=value)%>%
-  pivot_longer(cols=contains('commencement'))%>%
-  group_by(name)%>%
-  summarise(median=round(median(value,na.rm=T),digits=1),
-            lwr=round(quantile(value,0.25,na.rm=T),digits=1),
-            upr=round(quantile(value,0.75,na.rm=T),digits=1),
-            min=round(min(value,0.75,na.rm=T),digits=1))
+## Sensitivity-adjusted branch attributions
+
+```{r fn-adjust-attributions}
+adjust_attributions <- function(crypt_branch, branch_attributions, sens_edges) {
+  crypt_branch %>%
+    left_join(branch_attributions, by = c("branch_id" = "X_branch")) %>%
+    left_join(sens_edges,          by = c("branch_id" = "Samples")) %>%
+    mutate(sens = replace_na(sens, 1)) %>%
+    # branches with no attribution carry no mutations of that signature.
+    # Restricted to numeric columns; the original applied this to every column,
+    # which would have coerced any missing crypt or branch identifier to "0".
+    mutate(across(where(is.numeric), ~ replace_na(.x, 0))) %>%
+    mutate(
+      across(contains("SBS"), ~ round(.x, digits = 3)),
+      across(contains("SBS"), ~ .x / sens)
+    )
+}
 ```
 
-determine patient level summaries for commencement of exposure :
-```{r}
-## crypt level summaries
-crypt_bar_plot%>%
-  ungroup()%>%
-  filter(timepoint %in% c('age_cessation','age_continuation'))%>%
-  dplyr::select(patient,timepoint,value)%>%
-  group_by(timepoint)%>%
-  summarise(median=round(median(value,na.rm=T),digits=1),
-            lwr=round(quantile(value,0.25,na.rm=T),digits=1),
-            upr=round(quantile(value,0.75,na.rm=T),digits=1),
-            min=round(min(value,0.75,na.rm=T),digits=1))
+## Branch annotation and the background mutation clock
+
+<!--
+NOTE: `x` below is the ggtree `fortify()` column giving cumulative distance
+from the root, so `branch.length <= 50 & x < 50` identifies short truncal
+branches. It reads like a stray variable but is deliberate.
+-->
+
+```{r fn-annotate-branches}
+annotate_branches <- function(pileup, attributions, join_by) {
+  left_join(pileup, attributions, by = join_by) %>%
+    mutate(
+      # unattributed branches, typically at the root
+      across(contains("SBS"), ~ replace_na(.x, 0)),
+      muts_assigned = rowSums(pick(contains("_branch"))),
+      # rescale if the attribution exceeds the branch length
+      across(contains("_branch"),
+             ~ if_else(muts_assigned > branch.length,
+                       (.x / muts_assigned) * branch.length, .x)),
+      # zero out short truncal branches
+      across(contains("_branch"), ~ if_else(branch.length <= 50 & x < 50, 0, .x)),
+      SBSUnassigned = branch.length - rowSums(pick(contains("_branch")))
+    ) %>%
+    arrange(crypt, x) %>%
+    group_by(crypt) %>%
+    # background clock for this branch, and cumulative totals along the lineage
+    mutate(
+      background_muts_branch = SBS1_branch + SBS5_branch + SBS18_branch + SBSUnassigned
+    ) %>%
+    mutate(
+      background_muts_branch_end_msa   = cumsum(background_muts_branch),
+      background_muts_branch_start_msa = background_muts_branch_end_msa - background_muts_branch
+    ) %>%
+    mutate(
+      all_muts_count_branch_end_msa  = cumsum(background_muts_branch + SBS88_branch),
+      background_muts_crypt_total_msa = sum(background_muts_branch)
+    ) %>%
+    ungroup()
+}
 ```
 
-identify earliest metric for earliest possible commencement 
-```{r}
-# identify earliest case :
-crypt_bar_plot%>%
-  ungroup()%>%
-  filter(age_earliest_commencement>0&timepoint=='age_earliest_commencement')%>%
-  filter(value==min(value,na.rm=T))
-```
+## Confidence intervals on branch points
 
-identify earliest metric for latest possible commencement :
-```{r}
-crypt_bar_plot%>%
-  ungroup()%>%
-  filter(timepoint%in% c('age_continuation','age_cessation'))%>%
-  filter(value==min(value))
-```
+Each branch point is placed by the number of background mutations preceding it.
+A Poisson test of that count against the crypt's total background burden gives
+the interval.
 
-identify earliest instance of cessation in a crypt :
-```{r}
-crypt_bar_plot%>%
-  filter(name=='age_crypt_cessation_msa')%>%
-  filter(value==min(value,na.rm=T))
-```
+```{r fn-poisson-ci}
+poisson_ci <- function(count, total) {
+  count <- round(count, digits = 0)
+  total <- round(total, digits = 0)
 
-identify latest instance of continuation in a crypt :
-```{r}
-crypt_bar_plot%>%
-  ungroup()%>%
-  filter(timepoint=='age_continuation')%>%
-  filter(value==max(value,na.rm=T))
-```
+  ci <- vapply(
+    seq_along(count),
+    function(i) poisson.test(count[i], total[i])$conf.int * total[i],
+    numeric(2)
+  )
 
-for age ranges, stipulate the ratio of continuation to cessation :
-```{r}
-ages<-c(0,2,5,10,15)
-for (i in 2:length(ages)){
-  
-  time_sum<-crypt_bar_plot%>%
-    filter(value> ages[i-1] &value < ages[i] & timepoint %in% c('age_continuation','age_cessation'))%>%
-    filter(!duplicated(paste0(patient,value)))%>%
-    group_by(timepoint)%>%
-    summarise(n=n())%>%ungroup()%>%
-    mutate(prop=n/sum(n),ratio= prop/(1-prop))
-  colnames(time_sum)<-c('timepoint',paste0('n_',ages[i-1],'_',ages[i]), paste0('prop_',ages[i-1],'_',ages[i]),'ratio')
-  print(time_sum)
+  t(ci)
 }
 
+add_branch_cis <- function(df) {
+  start_ci <- poisson_ci(df$background_muts_branch_start_msa,
+                         df$background_muts_crypt_total_msa)
+  end_ci   <- poisson_ci(df$background_muts_branch_end_msa,
+                         df$background_muts_crypt_total_msa)
+
+  df %>%
+    mutate(
+      background_muts_branch_start_lower_ci = start_ci[, 1],
+      background_muts_branch_start_upper_ci = start_ci[, 2],
+      background_muts_branch_end_lower_ci   = end_ci[, 1],
+      background_muts_branch_end_upper_ci   = end_ci[, 2]
+    )
+}
 ```
 
-compare the timepoints for continuation between left and right side colon :
-```{r}
-crypt_timepoints_long_df%>%
-  ungroup()%>%
-  filter(timepoint=='known_pos_timepoint')%>%
-  mutate(location=ifelse(str_detect(crypt,'c'),'Right','Left'))%>%
-  group_by(location)%>%
-  filter(!duplicated(estimate))%>%
-  filter(!is.na(estimate))%>%
-  mutate(location=factor(location,levels=c('Left','Right')))%>%
+## Per-crypt background mutation rate
 
-  summarise(timepoints=length(location),
-            median=median(estimate, na.rm=T),
-            max=max(estimate,na.rm=T),
-            min=min(estimate,na.rm=T),
-            lower=quantile(estimate,0.25,na.rm=T),
-            upper=quantile(estimate,0.75,na.rm=T))
+```{r fn-background-rates}
+# `age_key` is the column linking a crypt to a donor age: "biopsy" for the
+# paediatric cohort, "patient" for Lee-Six.
+background_rates <- function(df, age_lookup, age_key) {
+  df %>%
+    dplyr::select(all_of(age_key), crypt, background_muts_crypt_total_msa) %>%
+    distinct() %>%
+    left_join(age_lookup, by = age_key) %>%
+    mutate(background_muts_rate_msa = background_muts_crypt_total_msa / age) %>%
+    dplyr::select(crypt, background_muts_rate_msa, age)
+}
+```
 
+## Branch classification
+
+<!--
+NOTE: `SBS88_unpruned` is NA for branches absent from the unpruned attribution
+table. The original behaviour is preserved: such a branch fails the "Post
+cessation branch" test and falls through to "Indeterminant" whenever its length
+is below `indeterminant_max_length`.
+-->
+
+```{r fn-classify-branches}
+classify_branches <- function(df, unpruned, rates,
+                              post_cessation_min_length,
+                              indeterminant_max_length) {
+  df %>%
+    left_join(unpruned, by = c("branch_id" = "Sample_unpruned")) %>%
+    group_by(crypt) %>%
+    mutate(
+      parent_branch_id = paste0(patient, "_", parent),
+      branch_status = case_when(
+        branch.length <= 50 & x < 50
+          ~ "Truncal",
+        sum(SBS88_branch > 0) == 0
+          ~ "Negative Crypt",
+        sum(SBS88_branch > 0) > 0 & cumsum(SBS88_branch > 0) == 0
+          ~ "Pre exposure",
+        cumsum(SBS88_branch > 0) == 1 & SBS88_branch > 0
+          ~ "First positive branch",
+        cumsum(SBS88_branch > 0) > 1 & SBS88_branch > 0
+          ~ "Second positive branch",
+        cumsum(SBS88_branch > 0) > 0 & SBS88_branch == 0 &
+          SBS88_unpruned == 0 & branch.length > post_cessation_min_length
+          ~ "Post cessation branch",
+        cumsum(SBS88_branch > 0) > 0 & SBS88_branch == 0 &
+          (SBS88_unpruned > 0 | branch.length < indeterminant_max_length)
+          ~ "Post cessation branch - Indeterminant",
+        TRUE
+          ~ "other"
+      )
+    ) %>%
+    ungroup() %>%
+    left_join(rates, by = "crypt") %>%
+    # convert mutation counts into donor ages using the per-crypt clock
+    mutate(
+      across(contains("background_muts_branch"),
+             ~ .x / background_muts_rate_msa, .names = "age_{.col}"),
+      branch_duration = age_background_muts_branch_end_msa -
+                        age_background_muts_branch_start_msa
+    )
+}
+```
+
+## Timepoints and swimmer-plot data
+
+```{r fn-timepoints}
+# Reshape classified branches into one row per crypt per informative timepoint.
+# `branch_statuses` selects which branch types contribute; `informative`
+# selects the timepoints a crypt must have at least one of to be retained.
+build_timepoints <- function(df, branch_statuses, informative) {
+  df %>%
+    dplyr::select(
+      patient, crypt, branch_id, parent_branch_id, branch_status,
+      age_background_muts_branch_start_msa,
+      age_background_muts_branch_end_msa, age
+    ) %>%
+    filter(branch_status %in% branch_statuses) %>%
+    pivot_longer(cols = contains("age")) %>%
+    mutate(
+      timepoint = case_when(
+        branch_status == "First positive branch" &
+          name == "age_background_muts_branch_start_msa" ~ "age_earliest_commencement",
+        branch_status == "First positive branch" &
+          name == "age_background_muts_branch_end_msa"   ~ "age_latest_commencement",
+        branch_status == "Second positive branch" &
+          name == "age_background_muts_branch_start_msa" ~ "age_continuation",
+        branch_status == "Post cessation branch" &
+          name == "age_background_muts_branch_start_msa" ~ "age_cessation",
+        branch_status == "Post cessation branch - Indeterminant" &
+          name == "age_background_muts_branch_start_msa" ~ "age_indeterminant_timepoint",
+        branch_status == "First positive branch" &
+          name == "age"                                  ~ "donor_age",
+        .default = "Other"
+      )
+    ) %>%
+    filter(timepoint != "Other") %>%
+    dplyr::select(patient, crypt, timepoint, value) %>%
+    group_by(crypt) %>%
+    # keep only crypts with at least one informative timepoint
+    filter(sum(timepoint %in% informative) > 0) %>%
+    ungroup()
+}
+```
+
+
+```{r fn-swimmer-data}
+build_swimmer_data <- function(timepoints, limit_repeat_timepoints = FALSE) {
+  patient_order <- timepoints %>%
+    filter(timepoint == "donor_age") %>%
+    group_by(patient) %>%
+    summarise(donor_age = median(value, na.rm = TRUE), .groups = "drop") %>%
+    arrange(desc(donor_age))
+
+  crypt_order <- timepoints %>%
+    distinct(crypt, .keep_all = TRUE) %>%
+    mutate(patient_f = factor(patient, levels = patient_order$patient)) %>%
+    arrange(patient_f) %>%
+    group_by(patient_f) %>%
+    mutate(ypos = seq(1.5, by = 0.5, length.out = n())) %>%
+    ungroup() %>%
+    dplyr::select(crypt, ypos)
+
+  earliest_commencement <- timepoints %>%
+    filter(timepoint == "age_earliest_commencement") %>%
+    dplyr::select(crypt, age_earliest_commencement = value)
+
+  bar <- timepoints %>%
+    left_join(patient_order,         by = "patient") %>%
+    left_join(crypt_order,           by = "crypt") %>%
+    left_join(earliest_commencement, by = "crypt") %>%
+    mutate(patient_f = factor(patient, levels = patient_order$patient)) %>%
+    arrange(patient_f) %>%
+    filter(!timepoint %in% c("donor_age", "age_latest_commencement")) %>%
+    filter(!is.na(value)) %>%
+    dplyr::select(patient, patient_f, crypt, donor_age,
+                  age_earliest_commencement, timepoint, value, ypos)
+
+  if (limit_repeat_timepoints) {
+    # at most one cessation per crypt, and no indeterminant timepoint after an
+    # earlier indeterminant or cessation timepoint
+    bar <- bar %>%
+      group_by(crypt) %>%
+      filter(
+        cumsum(timepoint == "age_cessation") < 2 &
+          !(timepoint == "age_indeterminant_timepoint" &
+              cumsum(timepoint %in% c("age_indeterminant_timepoint", "age_cessation")) > 1)
+      ) %>%
+      ungroup()
+  }
+
+  bar %>% distinct(crypt, patient, timepoint, value, .keep_all = TRUE)
+}
+```
+
+## Shared plotting elements
+
+```{r fn-plot-elements}
+timepoint_colours <- c(
+  age_continuation            = "springgreen2",
+  age_cessation               = "orange1",
+  age_earliest_commencement   = "skyblue2",
+  age_indeterminant_timepoint = "grey75",
+  secondary_bifurcation       = "grey10"
+)
+
+timepoint_labels <- c(
+  age_continuation            = "Known Timepoint of Ongoing Exposure",
+  age_cessation               = "Latest Possible Cessation",
+  age_earliest_commencement   = "Earliest Possible Commencement",
+  age_indeterminant_timepoint = "Indeterminant Timepoint",
+  secondary_bifurcation       = "Subsequent crypt bifurcation"
+)
+
+exposure_colour   <- "maroon3"
+background_colour <- "bisque3"
+segment_width     <- 1.7
+```
+
+## Shared summary helpers
+
+<!--
+NOTE: the original summaries used `max(value, 0.75, na.rm = TRUE)` and
+`min(value, 0.75, na.rm = TRUE)`. The 0.75 was intended as a quantile argument
+but was passed to max()/min() as an extra value, so every reported minimum was
+capped at 0.75 and every maximum was at least 0.75. Corrected below -- the
+reported minima in particular will change.
+-->
+
+```{r fn-summaries}
+# Patient-level medians, then a cohort-level summary of those medians.
+summarise_across_patients <- function(df, value_col = value, group_col) {
+  df %>%
+    group_by({{ group_col }}) %>%
+    summarise(
+      median = round(median({{ value_col }}, na.rm = TRUE), 1),
+      lwr    = round(quantile({{ value_col }}, 0.25, na.rm = TRUE), 1),
+      upr    = round(quantile({{ value_col }}, 0.75, na.rm = TRUE), 1),
+      min    = round(min({{ value_col }}, na.rm = TRUE), 1),
+      max    = round(max({{ value_col }}, na.rm = TRUE), 1),
+      .groups = "drop"
+    )
+}
+
+# Earliest and latest possible commencement, summarised across patients. The
+# latest possible commencement is taken from the first informative timepoint.
+summarise_commencement <- function(bar) {
+  bar %>%
+    group_by(patient) %>%
+    filter(timepoint %in% c("age_cessation", "age_continuation")) %>%
+    filter(value == min(value)) %>%
+    ungroup() %>%
+    dplyr::select(patient, age_earliest_commencement, value) %>%
+    dplyr::rename(latest_possible_commencement = value) %>%
+    pivot_longer(cols = contains("commencement")) %>%
+    group_by(patient, name) %>%
+    summarise(value = median(value), .groups = "drop") %>%
+    summarise_across_patients(group_col = name)
+}
+
+# Continuation / cessation timepoints, summarised across patients.
+# `patient_fn` is median for the paediatric cohort and min for Lee-Six.
+summarise_timepoints <- function(bar, patient_fn = median) {
+  bar %>%
+    filter(timepoint %in% c("age_cessation", "age_continuation")) %>%
+    dplyr::select(patient, timepoint, value) %>%
+    group_by(patient, timepoint) %>%
+    summarise(value = patient_fn(value), .groups = "drop") %>%
+    summarise_across_patients(group_col = timepoint)
+}
+```
+
+# Run 1: paediatric colon
+
+## Input data
+
+```{r paed-load}
+crypt_signature_attributions <- read.csv(
+  file.path(data_dir, "crypt_signature_attributions.csv")
+)
+crypt_metadata <- read.csv(file.path(data_dir, "biopsy_metadata.csv"))
+
+# pruned per-branch SBS attributions
+paed_branch_attributions <- read.csv(
+  file.path("..", "Signatures", "msa_phylogenetic_branches_attribution",
+            "pruned_attribution_paediatric_branches_SBS_abs_mutations.csv")
+) %>%
+  rename_with(~ paste0(.x, "_branch"))
+
+# unpruned attributions, used only to flag branches where SBS88 is present
+# before pruning
+paed_branch_unpruned <- read.csv(
+  file.path("..", "Signatures", "msa_phylogenetic_branches_attribution",
+            "output_paediatric_branches_SBS_weights_table.csv")
+) %>%
+  rename_with(~ paste0(.x, "_unpruned")) %>%
+  dplyr::select(Sample_unpruned, SBS88_unpruned)
+
+paed_tip_sens <- crypt_signature_attributions %>%
+  dplyr::select(sample, sensitivitySBS) %>%
+  column_to_rownames(var = "sample")
+
+paed_age_lookup <- crypt_metadata %>%
+  dplyr::select(biopsy, age) %>%
+  distinct()
+
+stopifnot(!any(duplicated(paed_age_lookup$biopsy)))
+```
+
+## Crypt pileup
+
+This chunk walks every tree and is the slowest step in the notebook; consider
+setting `cache = TRUE` on it while iterating.
+
+```{r paed-pileup}
+paed_trees <- build_crypt_pileup(
+  tree_dir = file.path("..", "snv_phylogenetic_trees"),
+  tip_sens = paed_tip_sens
+)
+
+paed_pileup <- paed_trees$pileup %>%
+  mutate(
+    patient   = str_extract(crypt, "PD\\d{5}"),
+    biopsy    = str_extract(crypt, "PD\\d{5}\\w"),
+    branch_id = paste(patient, node, sep = "_")
+  ) %>%
+  distinct(crypt, branch_id, .keep_all = TRUE)
+```
+
+## Sensitivity-adjusted attributions
+
+```{r paed-attributions}
+paed_attributions <- paed_pileup %>%
+  dplyr::select(biopsy, crypt, branch_id) %>%
+  adjust_attributions(paed_branch_attributions, paed_trees$sens_edges)
+```
+
+## Branch annotation and background clock
+
+```{r paed-annotate}
+paed_annotated <- paed_pileup %>%
+  annotate_branches(paed_attributions, join_by = c("biopsy", "crypt", "branch_id")) %>%
+  add_branch_cis()
+
+paed_rates <- background_rates(paed_annotated, paed_age_lookup, age_key = "biopsy")
+```
+
+## Branch classification
+
+Branch-length thresholds for the paediatric cohort: a post cessation branch must exceed  44 mutations.
+
+```{r paed-classify}
+paed_branch_classification <- classify_branches(
+  paed_annotated,
+  unpruned                  = paed_branch_unpruned,
+  rates                     = paed_rates,
+  post_cessation_min_length = 44,
+  indeterminant_max_length  = 44
+)
+
+count(paed_branch_classification, branch_status)
+```
+
+```{r paed-write-classification}
+write.csv(
+  paed_branch_classification,
+  file.path(data_dir, "phylogenetic_trees_branch_classification.csv"),
+  quote = FALSE, row.names = FALSE
+)
+```
+
+## Timepoints and swimmer-plot data
+
+```{r paed-timepoints}
+paed_timepoints <- build_timepoints(
+  paed_branch_classification,
+  branch_statuses = c("First positive branch", "Second positive branch",
+                      "Post cessation branch", "Post cessation branch - Indeterminant"),
+  informative     = c("age_cessation", "age_indeterminant_timepoint", "age_continuation")
+)
+
+paed_bar_plot <- build_swimmer_data(paed_timepoints, limit_repeat_timepoints = TRUE)
+```
+
+## Figure 4: swimmer plot
+
+```{r fig4-paed-swimmers, fig.width = 9.33, fig.height = 12}
+paed_fill_breaks <- c("age_continuation", "age_cessation", "age_earliest_commencement",
+                      "age_indeterminant_timepoint", "secondary_bifurcation")
+
+paed_swimmers_plt <- ggplot(paed_bar_plot, aes(y = ypos)) +
+
+  # full lifespan of the donor, as background
+  geom_segment(aes(x = 0, xend = donor_age, yend = ypos),
+               colour = background_colour, linewidth = segment_width) +
+
+  # window of active exposure
+  geom_segment(
+    data = filter(paed_bar_plot, timepoint %in% c("age_continuation",
+                                                  "age_indeterminant_timepoint",
+                                                  "age_cessation")),
+    aes(x = age_earliest_commencement, xend = value, yend = ypos),
+    colour = exposure_colour, alpha = 1, linewidth = segment_width
+  ) +
+
+  # possible continuation beyond the last known positive branch
+  geom_segment(
+    data = filter(paed_bar_plot, timepoint == "age_continuation"),
+    aes(x = value, xend = donor_age, yend = ypos),
+    colour = exposure_colour, alpha = 0.3, linewidth = segment_width
+  ) +
+
+  # period after cessation
+  geom_segment(
+    data = filter(paed_bar_plot, timepoint == "age_cessation"),
+    aes(x = value, xend = donor_age, yend = ypos),
+    colour = background_colour, alpha = 1, linewidth = segment_width
+  ) +
+
+  # commencement / continuation / cessation markers
+  geom_point(
+    data = filter(paed_bar_plot, timepoint %in% paed_fill_breaks),
+    aes(x = value, y = ypos, fill = timepoint),
+    size = 3.5, colour = "black", shape = 23, alpha = 1, stroke = 0.75, na.rm = TRUE
+  ) +
+
+  scale_fill_manual(
+    breaks = paed_fill_breaks,
+    values = timepoint_colours,
+    labels = timepoint_labels[paed_fill_breaks]
+  ) +
+  scale_x_continuous(
+    breaks       = seq(0, 20, 5),
+    minor_breaks = seq(0, 20, 1),
+    expand       = expansion(mult = c(0.01, 0.02))
+  ) +
+  facet_grid(patient_f ~ ., scales = "free", switch = "y", space = "free_y") +
+  labs(y = "Colonic Crypts Grouped by Donor", x = "Window for exposure [years]") +
+  coord_cartesian(clip = "off") +
+  theme_classic() +
+  theme(
+    axis.text.y      = element_blank(),
+    axis.ticks.y     = element_blank(),
+    axis.title       = element_text(size = 16, face = "bold"),
+    axis.text.x      = element_text(size = 14),
+    strip.background = element_blank(),
+    strip.placement  = "inside",
+    strip.text       = element_blank(),
+    legend.position  = "none",
+    legend.title     = element_blank()
+  )
+
+paed_swimmers_plt
+
+ggsave(
+  file.path(fig_dir, "crypt_by_crypt_swimmers_plot.png"),
+  paed_swimmers_plt,
+  width = 2800 / 300, height = 3600 / 300, dpi = 300, bg = "transparent"
+)
+```
+
+### Standalone legend
+
+```{r fig4-legend}
+legend_df <- data.frame(
+  colour = c("skyblue2", "springgreen2", "orange1", "grey75",
+             exposure_colour, scales::alpha(exposure_colour, 0.5), background_colour),
+  timepoint = c(
+    "Earliest Possible Commencement of Exposure",
+    "Timepoint of Ongoing Exposure",
+    "Latest Possible Cessation of Exposure",
+    "Indeterminant Timepoint [Insufficient branch length / SBS88 present in unpruned attribution]",
+    "First positive branch",
+    "Subsequent positive branch",
+    "Colibactin negative branch"
+  ),
+  shape = c(23, 23, 23, 23, 22, 22, 22)
+)
+
+svglite::svglite(
+  file.path(fig_dir, "figure_4_phylogenetic_tree_legend.svg"),
+  height = 10, width = 20, bg = "transparent"
+)
+plot.new()
+legend(
+  "left",
+  legend = legend_df$timepoint,
+  pch    = legend_df$shape,
+  pt.bg  = legend_df$colour,
+  col    = "black",
+  pt.cex = 2.5,
+  bty    = "n",
+  cex    = 1.5,
+  ncol   = 2
+)
+dev.off()
+```
+
+## Summary statistics
+
+```{r paed-n-patients}
+cat(sprintf("Patients with informative timepoints: n = %d\n",
+            n_distinct(paed_bar_plot$patient)))
+```
+
+Commencement of exposure, summarised across patients.
+
+```{r paed-commencement}
+summarise_commencement(paed_bar_plot)
+```
+
+Continuation and cessation of exposure, summarised across patients.
+
+```{r paed-continuation-cessation}
+summarise_timepoints(paed_bar_plot, patient_fn = median)
+```
+
+Earliest latest-possible-commencement across the cohort.
+
+```{r paed-earliest-commencement}
+paed_bar_plot %>%
+  filter(timepoint %in% c("age_continuation", "age_cessation")) %>%
+  filter(value == min(value))
+```
+
+Earliest cessation observed in any crypt.
+
+```{r paed-earliest-cessation}
+paed_bar_plot %>%
+  filter(timepoint == "age_cessation") %>%
+  filter(value == min(value, na.rm = TRUE))
+```
+
+Latest continuation observed in any crypt.
+
+```{r paed-latest-continuation}
+paed_bar_plot %>%
+  filter(timepoint == "age_continuation") %>%
+  filter(value == max(value, na.rm = TRUE))
+```
+
+Ratio of continuation to cessation timepoints within age bands.
+
+```{r paed-age-band-ratios}
+age_bands <- c(0, 2, 5, 10, 15)
+
+map_dfr(seq_len(length(age_bands) - 1), function(i) {
+  lower <- age_bands[i]
+  upper <- age_bands[i + 1]
+
+  paed_bar_plot %>%
+    filter(value > lower, value < upper,
+           timepoint %in% c("age_continuation", "age_cessation")) %>%
+    distinct(patient, value, .keep_all = TRUE) %>%
+    count(timepoint, name = "n") %>%
+    mutate(
+      age_band = sprintf("%g-%g years", lower, upper),
+      prop     = n / sum(n),
+      ratio    = prop / (1 - prop)
+    )
+}) %>%
+  dplyr::select(age_band, timepoint, n, prop, ratio)
+```
+
+Continuation and cessation timepoints by colonic side.
+
+```{r paed-timepoints-by-side}
+location_metadata <- crypt_metadata %>% dplyr::select(biopsy, site)
+
+paed_bar_plot %>%
+  mutate(biopsy = str_extract(crypt, "PD\\d{5}\\w")) %>%
+  left_join(location_metadata, by = "biopsy") %>%
+  filter(timepoint %in% c("age_continuation", "age_cessation",
+                          "age_indeterminant_timepoint")) %>%
+  filter(!is.na(value)) %>%
+  mutate(site = factor(site, levels = c("Left", "Right"))) %>%
+  group_by(site, timepoint) %>%
+  distinct(value, .keep_all = TRUE) %>%
+  summarise(
+    timepoints = n(),
+    median     = median(value, na.rm = TRUE),
+    lower      = quantile(value, 0.25, na.rm = TRUE),
+    upper      = quantile(value, 0.75, na.rm = TRUE),
+    min        = min(value, na.rm = TRUE),
+    max        = max(value, na.rm = TRUE),
+    .groups    = "drop"
+  ) %>%
+  mutate(across(c(median, lower, upper, min, max), ~ round(.x, 1)))
+```
+
+### Individual donors quoted in the text
+
+```{r paed-donor-pd65128}
+paed_bar_plot %>%
+  filter(patient == "PD65128", timepoint == "age_cessation")
+```
+
+```{r paed-donor-pd65107}
+paed_bar_plot %>%
+  filter(patient == "PD65107",
+         timepoint %in% c("age_cessation", "age_continuation"))
+```
+
+
+```{r paed-donor-pd69086}
+paed_bar_plot %>%
+  filter(patient == "PD69086", timepoint == "age_continuation")
+
+paed_bar_plot %>%
+  filter(patient == "PD69086", timepoint == "age_cessation") %>%
+  summarise(
+    crypts=n(),
+    median  = median(value),
+    lower_q = quantile(value, 0.25),
+    upper_q = quantile(value, 0.75)
+  )
+```
+
+# Run 2: adult colon (Lee-Six et al., Nature, 2019)
+
+The same pipeline, with four differences from Run 1:
+
+## Input data
+
+```{r lee-six-load}
+lee_six_nature_2019 <- read.csv(
+  file.path(data_dir, "lee_six_nature_2019_sbs_id_attribution.csv")
+)
+
+lee_six_crypt_patient_map <- lee_six_nature_2019 %>%
+  dplyr::select(patient, crypt)
+
+lee_six_branch_attributions <- read.csv(
+  file.path(data_dir, "Lee_Six_Nature_2019", "msa_branch_attributions",
+            "pruned_attribution_hls_branches_SBS_abs_mutations.csv")
+) %>%
+  rename_with(~ paste0(.x, "_branch"))
+
+lee_six_branch_unpruned <- read.csv(
+  file.path(data_dir, "Lee_Six_Nature_2019", "msa_branch_attributions",
+            "output_hls_branches_SBS_weights_table.csv")
+) %>%
+  rename_with(~ paste0(.x, "_unpruned")) %>%
+  dplyr::select(Sample_unpruned, SBS88_unpruned)
+
+lee_six_tip_sens <- lee_six_nature_2019 %>%
+  dplyr::select(crypt, sensitivitySBS) %>%
+  column_to_rownames(var = "crypt")
+
+lee_six_age_lookup <- lee_six_nature_2019 %>%
+  dplyr::select(patient, age) %>%
+  distinct()
+
+stopifnot(!any(duplicated(lee_six_age_lookup$patient)))
+```
+
+## Crypt pileup
+
+```{r lee-six-pileup}
+lee_six_trees <- build_crypt_pileup(
+  tree_dir = file.path(data_dir, "Lee_Six_Nature_2019", "snv_phylogenetics_output"),
+  tip_sens = lee_six_tip_sens
+)
+
+lee_six_pileup <- lee_six_trees$pileup %>%
+  left_join(lee_six_crypt_patient_map, by = "crypt") %>%
+  mutate(branch_id = paste(patient, node, sep = "_")) %>%
+  distinct(crypt, branch_id, .keep_all = TRUE)
+```
+
+## Attributions, annotation and classification
+
+```{r lee-six-classify}
+lee_six_attributions <- lee_six_pileup %>%
+  dplyr::select(patient, crypt, branch_id) %>%
+  adjust_attributions(lee_six_branch_attributions, lee_six_trees$sens_edges)
+
+lee_six_annotated <- lee_six_pileup %>%
+  annotate_branches(lee_six_attributions, join_by = c("patient", "crypt", "branch_id")) %>%
+  add_branch_cis()
+
+lee_six_rates <- background_rates(lee_six_annotated, lee_six_age_lookup, age_key = "patient")
+
+lee_six_branch_classification <- classify_branches(
+  lee_six_annotated,
+  unpruned                  = lee_six_branch_unpruned,
+  rates                     = lee_six_rates,
+  post_cessation_min_length = 44,
+  indeterminant_max_length  = 43
+)
+
+count(lee_six_branch_classification, branch_status)
+```
+
+## Timepoints and swimmer-plot data
+
+```{r lee-six-timepoints}
+lee_six_timepoints <- build_timepoints(
+  lee_six_branch_classification,
+  branch_statuses = c("First positive branch", "Second positive branch",
+                      "Post cessation branch"),
+  informative     = c("age_cessation", "age_continuation")
+)
+
+lee_six_bar_plot <- build_swimmer_data(lee_six_timepoints, limit_repeat_timepoints = FALSE)
+```
+
+## Supplementary figure: swimmer plot
+
+```{r supp-lee-six-swimmers, fig.width = 10, fig.height = 5}
+lee_six_fill_breaks <- c("age_continuation", "age_cessation", "age_earliest_commencement")
+
+lee_six_swimmers_plt <- ggplot(lee_six_bar_plot, aes(y = ypos)) +
+
+  geom_segment(aes(x = 0, xend = donor_age, yend = ypos),
+               colour = background_colour, linewidth = segment_width) +
+
+  geom_segment(aes(x = age_earliest_commencement, xend = value, yend = ypos),
+               colour = exposure_colour, alpha = 1, linewidth = segment_width) +
+
+  geom_segment(
+    data = filter(lee_six_bar_plot, timepoint == "age_continuation"),
+    aes(x = value, xend = donor_age, yend = ypos),
+    colour = exposure_colour, alpha = 0.3, linewidth = segment_width
+  ) +
+
+  geom_point(
+    data = filter(lee_six_bar_plot, timepoint %in% lee_six_fill_breaks),
+    aes(x = value, y = ypos, fill = timepoint),
+    size = 3.5, colour = "black", shape = 23, alpha = 0.9, stroke = 0.5, na.rm = TRUE
+  ) +
+
+  scale_fill_manual(
+    breaks = lee_six_fill_breaks,
+    values = timepoint_colours,
+    labels = timepoint_labels[lee_six_fill_breaks]
+  ) +
+  facet_grid(patient_f ~ ., scales = "free", switch = "y", space = "free_y") +
+  labs(y = "Colonic Crypts Grouped by Donor", x = "Window for exposure [years]") +
+  coord_cartesian(clip = "off") +
+  theme_classic() +
+  theme(
+    axis.text.y       = element_blank(),
+    axis.ticks.y      = element_blank(),
+    strip.background  = element_blank(),
+    strip.placement   = "outside",
+    strip.text.y.left = element_text(size = 12, angle = 0),
+    strip.clip        = "off",
+    legend.position   = "bottom",
+    legend.title      = element_blank()
+  )
+
+lee_six_swimmers_plt
+
+ggsave(
+  file.path(supp_fig_dir, "lee_six_crypt_by_crypt_swimmers_plot.svg"),
+  lee_six_swimmers_plt,
+  width = 10, height = 5, bg = "transparent", device = svglite::svglite
+)
+```
+
+### Branch shading legend
+
+```{r supp-branch-legend, fig.width = 4, fig.height = 2}
+branch_legend_df <- data.frame(
+  y      = c(2, 1),
+  branch = c("First positive branch", "Subsequent positive branch")
+)
+
+branch_legend_plt <- ggplot(branch_legend_df) +
+  geom_segment(aes(x = 0, xend = 1, y = y, yend = y, alpha = branch),
+               colour = exposure_colour, linewidth = 2) +
+  scale_alpha_manual(values = c("First positive branch" = 1,
+                                "Subsequent positive branch" = 0.3)) +
+  theme_void() +
+  theme(legend.text = element_text(size = 9))
+
+branch_legend_plt
+
+ggsave(
+  file.path(supp_fig_dir, "branch_legend.svg"),
+  branch_legend_plt,
+  width = 4, height = 2, device = svglite::svglite
+)
+```
+
+## Summary statistics
+
+```{r lee-six-n-patients}
+cat(sprintf("Patients with informative timepoints: n = %d\n",
+            n_distinct(lee_six_bar_plot$patient)))
+```
+
+```{r lee-six-commencement}
+summarise_commencement(lee_six_bar_plot)
+```
+
+```{r lee-six-continuation-cessation}
+summarise_timepoints(lee_six_bar_plot, patient_fn = min)
+```
+
+# Indel burden by branch status
+
+```{r indel-burdens}
+indel_burdens <- read.delim(file.path(data_dir, "paediatric_id_branches.SBS83.all"))
+
+indel_burdens_df <- data.frame(
+  branch_id        = colnames(indel_burdens)[-1],
+  branch_id_burden = colSums(indel_burdens[, -1])
+)
+
+branch_status_levels <- c("First positive branch", "Second positive branch",
+                          "Post cessation branch", "Negative Crypt",
+                          #'Post cessation branch - Indeterminant',
+                          "Truncal", "Pre exposure")
+
+indel_burdens_compare <- paed_branch_classification %>%
+  left_join(indel_burdens_df, by = "branch_id") %>%
+  mutate(
+    branch_status=ifelse(branch_status=='Post cessation branch - Indeterminant','Post cessation branch',branch_status),
+    branch_status = factor(branch_status, levels = branch_status_levels),
+    id_rate       = branch_id_burden / branch_duration
+  ) %>%
+  dplyr::select(branch_id, id_rate, branch_status) %>%
+  filter(!is.na(id_rate), is.finite(id_rate)) %>%
+  group_by(branch_id) %>%
+  filter(id_rate == min(id_rate)) %>%
+  ungroup() %>%
+  distinct()
+
+count(indel_burdens_compare, branch_status)
+```
+
+```{r indel-tests}
+comparisons <- list(
+  c("Post cessation branch",  "Negative Crypt"),
+  c("Second positive branch", "Post cessation branch"),
+  c("Second positive branch", "Negative Crypt"),
+  c("First positive branch",  "Post cessation branch"),
+  c("First positive branch",  "Negative Crypt")
+)
+
+p_values <- map_dbl(comparisons, function(comp) {
+  indel_burdens_compare %>%
+    filter(branch_status %in% comp) %>%
+    droplevels() %>%
+    wilcox.test(id_rate ~ branch_status, data = .) %>%
+    pluck("p.value")
+})
+
+p_adj <- p.adjust(p_values, method = "bonferroni")
+
+tibble(
+  comparison = map_chr(comparisons, ~ paste(.x, collapse = " vs ")),
+  p_raw      = signif(p_values, 3),
+  p_bonferroni = signif(p_adj, 3)
+)
+```
+
+```{r supp-indel-by-branch-status, fig.width = 9, fig.height = 6}
+indel_branches_plt <- ggplot(
+    filter(indel_burdens_compare, id_rate < 60),
+    aes(x = branch_status, y = id_rate, fill = branch_status)
+  ) +
+  geom_boxplot() +
+  geom_signif(
+    comparisons = comparisons,
+    y_position  = c(29, 34, 39, 44, 49),
+    annotations = if_else(p_adj < 0.001, "P < 0.001",
+                          paste0("P = ", signif(p_adj, 3))),
+    tip_length  = 0.01
+  ) +
+  scale_y_continuous(limits = c(0, 60)) +
+  scale_fill_manual(
+    breaks = branch_status_levels,
+    values = c("maroon4", "hotpink3", "grey30", "grey70", "grey70", "grey70")
+  ) +
+  scale_x_discrete(
+    breaks = branch_status_levels,
+    labels = c("First positive\nbranch", "Second\npositive branch",
+               "Post cessation\nbranch", "Negative\nCrypt",
+               "Truncal", "Pre-exposure")
+  ) +
+  labs(y = "ID mutation rate [mutations / year]", x = "", fill = "Branch status") +
+  theme_classic() +
+  theme(
+    legend.position = "bottom",
+    axis.title      = element_text(size = 12, face = "bold"),
+    axis.text       = element_text(size = 12),
+    legend.title    = element_text(size = 12, face = "bold"),
+    legend.text     = element_text(size = 12)
+  )
+
+indel_branches_plt
+
+ggsave(
+  file.path(supp_fig_dir, "compare_indel_per_year.png"),
+  indel_branches_plt,
+  width = 9, height = 6
+)
+```
+
+# Session information
+
+```{r session-info}
+sessionInfo()
 ```

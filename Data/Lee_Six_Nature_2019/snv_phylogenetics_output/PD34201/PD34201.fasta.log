@@ -1,0 +1,152 @@
+MPBoot version 1.1.0 for Linux 64-bit built Mar 23 2018
+Copyright (c) 2016 Diep Thi Hoang, Le Sy Vinh, Tomas Flouri, Alexandros Stamatakis, Arndt von Haeseler and Bui Quang Minh.
+
+Host:    node-14-25 (AVX2, FMA3, 2151 GB RAM)
+Command: mpboot -s PD34201.fasta -bb 1000 -cost e -st DNA
+Seed:    657755 (Using SPRNG - Scalable Parallel Random Number Generator)
+Time:    Sat Sep 19 18:00:06 2026
+Kernel:  AVX
+
+Reading alignment file PD34201.fasta ... Fasta format detected
+Alignment most likely contains DNA/RNA sequences
+Alignment has 56 sequences with 68305 columns and 4768 patterns
+ID   Sequence      #Gap/Ambiguity
+1    Ancestral     0    (0.000%)	4
+2    PD34201a_s6   257  (0.376%)	4
+3    PD34201a_s18  227  (0.332%)	4
+4    PD34201a_s20  312  (0.457%)	4
+5    PD34201a_s28  304  (0.445%)	4
+6    PD34201a_s42  222  (0.325%)	4
+7    PD34201a_s2   229  (0.335%)	4
+8    PD34201a_s22  475  (0.695%)	4
+9    PD34201a_s24  325  (0.476%)	4
+10   PD34201a_s36  344  (0.504%)	4
+11   PD34201a_s43  291  (0.426%)	4
+12   PD34201a_s4   345  (0.505%)	4
+13   PD34201a_s44  370  (0.542%)	4
+14   PD34201a_s45  258  (0.378%)	4
+15   PD34201a_s10  499  (0.731%)	4
+16   PD34201a_c32  330  (0.483%)	4
+17   PD34201a_s15  312  (0.457%)	4
+18   PD34201a_s31  276  (0.404%)	4
+19   PD34201a_c38  245  (0.359%)	4
+20   PD34201a_s11  523  (0.766%)	4
+21   PD34201a_c48  344  (0.504%)	4
+22   PD34201a_c4   292  (0.427%)	4
+23   PD34201a_s1   365  (0.534%)	4
+24   PD34201a_c44  196  (0.287%)	4
+25   PD34201a_c25  216  (0.316%)	4
+26   PD34201a_c42  186  (0.272%)	4
+27   PD34201a_t32  329  (0.482%)	4
+28   PD34201a_c40  312  (0.457%)	4
+29   PD34201a_c27  328  (0.480%)	4
+30   PD34201a_t18  308  (0.451%)	4
+31   PD34201a_t20  264  (0.387%)	4
+32   PD34201a_t19  233  (0.341%)	4
+33   PD34201a_t3   208  (0.305%)	4
+34   PD34201a_t23  218  (0.319%)	4
+35   PD34201a_t31  231  (0.338%)	4
+36   PD34201a_t8   184  (0.269%)	4
+37   PD34201a_c10  184  (0.269%)	4
+38   PD34201a_t46  191  (0.280%)	4
+39   PD34201a_t22  191  (0.280%)	4
+40   PD34201a_t30  231  (0.338%)	4
+41   PD34201a_t34  274  (0.401%)	4
+42   PD34201a_t28  215  (0.315%)	4
+43   PD34201a_t35  266  (0.389%)	4
+44   PD34201a_t45  241  (0.353%)	4
+45   PD34201a_t21  284  (0.416%)	4
+46   PD34201a_t44  177  (0.259%)	4
+47   PD34201a_c20  329  (0.482%)	4
+48   PD34201a_s7   299  (0.438%)	4
+49   PD34201a_t42  214  (0.313%)	4
+50   PD34201a_c1   221  (0.324%)	4
+51   PD34201a_c18  227  (0.332%)	4
+52   PD34201a_t41  307  (0.449%)	4
+53   PD34201a_t39  255  (0.373%)	4
+54   PD34201a_c22  247  (0.362%)	4
+55   PD34201a_c35  214  (0.313%)	4
+56   PD34201a_s47  325  (0.476%)	4
+**** TOTAL         15250 (0.399%)
+Cost matrix satisfies triangular inenquality
+Time for parsimony tree construction: 0.660 seconds
+Parsimony score: 58355
+Reordering patterns in alignment by decreasing order of pattern parsimony... 0.012 seconds
+
+Create initial parsimony tree by phylogenetic likelihood library (PLL)... 0.260 seconds
+Generating 1000 samples for bootstrap approximation...
+
+NOTE: 45.811 MB RAM is required!
+Current best tree score: 58355
+
+Generating 99 parsimony trees... (0 duplicated parsimony trees)
+CPU time: 18
+Finish initializing candidate tree set. Number of distinct locally optimal trees: 100
+Current best score: 58355 / CPU time: 18
+
+Time: 0h:0m:20s
+NOTE: REPS computation is segmented into 12 parts for speed...
+segment#1 ends at 16
+segment#2 ends at 32
+segment#3 ends at 48
+segment#4 ends at 64
+segment#5 ends at 96
+segment#6 ends at 144
+segment#7 ends at 208
+segment#8 ends at 272
+segment#9 ends at 368
+segment#10 ends at 512
+segment#11 ends at 912
+segment#12 ends at 4083
+0 seconds.
+RATCHET Iteration 10 / Score: 58355 / Time: 0h:0m:32s
+RATCHET Iteration 20 / Score: 58355 / Time: 0h:0m:38s (0h:2m:43s left)
+RATCHET Iteration 30 / Score: 58355 / Time: 0h:0m:43s (0h:1m:46s left)
+RATCHET Iteration 40 / Score: 58355 / Time: 0h:0m:50s (0h:1m:17s left)
+RATCHET Iteration 50 / Score: 58355 / Time: 0h:0m:55s (0h:0m:57s left)
+RATCHET Iteration 60 / Score: 58355 / Time: 0h:1m:2s (0h:0m:42s left)
+RATCHET Iteration 70 / Score: 58355 / Time: 0h:1m:7s (0h:0m:30s left)
+RATCHET Iteration 80 / Score: 58355 / Time: 0h:1m:16s (0h:0m:20s left)
+RATCHET Iteration 90 / Score: 58355 / Time: 0h:1m:25s (0h:0m:10s left)
+RATCHET Iteration 100 / Score: 58355 / Time: 0h:1m:33s (0h:0m:0s left)
+Optimizing bootstrap trees ...
+100 replicates done
+200 replicates done
+300 replicates done
+400 replicates done
+500 replicates done
+600 replicates done
+700 replicates done
+800 replicates done
+900 replicates done
+1000 replicates done
+CPU Time used:  310 sec.
+NOTE: At the end, 69698 bootstrap candidate trees evaluated.
+Scores of best 5 trees: 
+58355 58355 58355 58355 58355 
+BEST SCORE FOUND : 58355
+Creating bootstrap support values...
+Split supports printed to NEXUS file PD34201.fasta.splits.nex
+
+CPU time used for tree search: 400.310 sec (0h:6m:40s)
+Wall-clock time used for tree search: 420.899 sec (0h:7m:0s)
+Total CPU time used: 402.001 sec (0h:6m:42s)
+Total wall-clock time used: 422.731 sec (0h:7m:2s)
+
+Computing bootstrap consensus tree...
+Reading input file PD34201.fasta.splits.nex...
+56 taxa and 1966 splits.
+Consensus tree written to PD34201.fasta.contree
+NOTE: Changing to old kernel as consensus tree is multifurcating
+Parsimony score of consensus tree: 58355
+
+Analysis results written to: 
+  MPBoot report:                 PD34201.fasta.mpboot
+  Maximum-parsimony  tree:       PD34201.fasta.treefile
+
+Maximum parsimony bootstrap approximation results written to:
+  Split support values:          PD34201.fasta.splits.nex
+  Consensus tree:                PD34201.fasta.contree
+  Screen log file:               PD34201.fasta.log
+
+Date and Time: Sat Sep 19 18:07:10 2026

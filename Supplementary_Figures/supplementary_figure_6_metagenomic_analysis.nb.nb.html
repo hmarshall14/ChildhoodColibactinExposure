@@ -1778,13 +1778,37 @@ library(stringr)</code></pre>
 <p>print summaries from E. Coli mapping :</p>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1zb3VyY2UtYmVnaW4gZXlKa1lYUmhJam9pWUdCZ2NseHVjSEpwYm5Rb2NHRnpkR1V3S0NkTlpXUnBZVzRnYldGd2NHVmtJR0o1SUV0eVlXdGxibFZ1YVhFZ09pY3NJRzFsWkdsaGJpaHRaWFJoWjJWdWIyMXBZM05mYldGemRHVnlKRzVsZDE5bGMzUmZjbVZoWkhOZlluSmhhMlZ1S1NrcFhHNXdjbWx1ZENod1lYTjBaVEFvSjB4dmQyVnlJRU5KSUcxaGNIQmxaQ0JpZVNCTGNtRnJaVzVWYm1seElEb25MQ0J4ZFdGdWRHbHNaU2h0WlhSaFoyVnViMjFwWTNOZmJXRnpkR1Z5Skc1bGQxOWxjM1JmY21WaFpITmZZbkpoYTJWdUxEQXVNalVwS1NsY2JuQnlhVzUwS0hCaGMzUmxNQ2duVEc5M1pYSWdRMGtnYldGd2NHVmtJR0o1SUV0eVlXdGxibFZ1YVhFZ09pY3NJSEYxWVc1MGFXeGxLRzFsZEdGblpXNXZiV2xqYzE5dFlYTjBaWElrYm1WM1gyVnpkRjl5WldGa2MxOWljbUZyWlc0c01DNDNOU2twS1Z4dWNISnBiblFvY0dGemRHVXdLQ2RGSUdOdmJHa2dhV1JsYm5ScFptbGxaQ0JpZVNCdFpYUmhjR2hzWVc0Z2FXNGdPaUJ1UFNjc0lHNXliM2NvYldWMFlXZGxibTl0YVdOelgyMWhjM1JsY2x0dFpYUmhaMlZ1YjIxcFkzTmZiV0Z6ZEdWeUpHTnZkbVZ5WVdkbFgyMWxkR0Z3YUd4aGJqNHdMRjBwS1NsY2JtQmdZQ0o5IC0tPlxuXG5gYGByXG5wcmludChwYXN0ZTAoJ01lZGlhbiBtYXBwZWQgYnkgS3Jha2VuVW5pcSA6JywgbWVkaWFuKG1ldGFnZW5vbWljc19tYXN0ZXIkbmV3X2VzdF9yZWFkc19icmFrZW4pKSlcbnByaW50KHBhc3RlMCgnTG93ZXIgQ0kgbWFwcGVkIGJ5IEtyYWtlblVuaXEgOicsIHF1YW50aWxlKG1ldGFnZW5vbWljc19tYXN0ZXIkbmV3X2VzdF9yZWFkc19icmFrZW4sMC4yNSkpKVxucHJpbnQocGFzdGUwKCdMb3dlciBDSSBtYXBwZWQgYnkgS3Jha2VuVW5pcSA6JywgcXVhbnRpbGUobWV0YWdlbm9taWNzX21hc3RlciRuZXdfZXN0X3JlYWRzX2JyYWtlbiwwLjc1KSkpXG5wcmludChwYXN0ZTAoJ0UgY29saSBpZGVudGlmaWVkIGJ5IG1ldGFwaGxhbiBpbiA6IG49JywgbnJvdyhtZXRhZ2Vub21pY3NfbWFzdGVyW21ldGFnZW5vbWljc19tYXN0ZXIkY292ZXJhZ2VfbWV0YXBobGFuPjAsXSkpKVxuYGBgXG5cbjwhLS0gcm5iLXNvdXJjZS1lbmQgLS0+XG4ifQ== -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxucHJpbnQocGFzdGUwKCdNZWRpYW4gbWFwcGVkIGJ5IEtyYWtlblVuaXEgOicsIG1lZGlhbihtZXRhZ2Vub21pY3NfbWFzdGVyJG5ld19lc3RfcmVhZHNfYnJha2VuKSkpXG5wcmludChwYXN0ZTAoJ0xvd2VyIENJIG1hcHBlZCBieSBLcmFrZW5VbmlxIDonLCBxdWFudGlsZShtZXRhZ2Vub21pY3NfbWFzdGVyJG5ld19lc3RfcmVhZHNfYnJha2VuLDAuMjUpKSlcbnByaW50KHBhc3RlMCgnTG93ZXIgQ0kgbWFwcGVkIGJ5IEtyYWtlblVuaXEgOicsIHF1YW50aWxlKG1ldGFnZW5vbWljc19tYXN0ZXIkbmV3X2VzdF9yZWFkc19icmFrZW4sMC43NSkpKVxucHJpbnQocGFzdGUwKCdFIGNvbGkgaWRlbnRpZmllZCBieSBtZXRhcGhsYW4gaW4gOiBuPScsIG5yb3cobWV0YWdlbm9taWNzX21hc3RlclttZXRhZ2Vub21pY3NfbWFzdGVyJGNvdmVyYWdlX21ldGFwaGxhbj4wLF0pKSlcbmBgYCJ9 -->
-<pre class="r"><code>print(paste0(&#39;Median mapped by KrakenUniq :&#39;, median(metagenomics_master$new_est_reads_braken)))
-print(paste0(&#39;Lower CI mapped by KrakenUniq :&#39;, quantile(metagenomics_master$new_est_reads_braken,0.25)))
-print(paste0(&#39;Lower CI mapped by KrakenUniq :&#39;, quantile(metagenomics_master$new_est_reads_braken,0.75)))
-print(paste0(&#39;E coli identified by metaphlan in : n=&#39;, nrow(metagenomics_master[metagenomics_master$coverage_metaphlan&gt;0,])))</code></pre>
+<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1zb3VyY2UtYmVnaW4gZXlKa1lYUmhJam9pWUdCZ2NseHVjSEpwYm5Rb2NHRnpkR1V3S0NkTlpXUnBZVzRnYldGd2NHVmtJR0o1SUV0eVlXdGxibFZ1YVhFZ09pY3NJRzFsWkdsaGJpaHRaWFJoWjJWdWIyMXBZM05mYldGemRHVnlKRzVsZDE5bGMzUmZjbVZoWkhOZlluSmhhMlZ1S1NrcFhHNWdZR0FpZlE9PSAtLT5cblxuYGBgclxucHJpbnQocGFzdGUwKCdNZWRpYW4gbWFwcGVkIGJ5IEtyYWtlblVuaXEgOicsIG1lZGlhbihtZXRhZ2Vub21pY3NfbWFzdGVyJG5ld19lc3RfcmVhZHNfYnJha2VuKSkpXG5gYGBcblxuPCEtLSBybmItc291cmNlLWVuZCAtLT5cbiJ9 -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxucHJpbnQocGFzdGUwKCdNZWRpYW4gbWFwcGVkIGJ5IEtyYWtlblVuaXEgOicsIG1lZGlhbihtZXRhZ2Vub21pY3NfbWFzdGVyJG5ld19lc3RfcmVhZHNfYnJha2VuKSkpXG5gYGAifQ== -->
+<pre class="r"><code>print(paste0(&#39;Median mapped by KrakenUniq :&#39;, median(metagenomics_master$new_est_reads_braken)))</code></pre>
 <!-- rnb-source-end -->
+<!-- rnb-output-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiWzFdIFwiTWVkaWFuIG1hcHBlZCBieSBLcmFrZW5VbmlxIDoxODRcIlxuIn0= -->
+<pre><code>[1] &quot;Median mapped by KrakenUniq :184&quot;</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1zb3VyY2UtYmVnaW4gZXlKa1lYUmhJam9pWUdCZ2NseHVjSEpwYm5Rb2NHRnpkR1V3S0NkTWIzZGxjaUJEU1NCdFlYQndaV1FnWW5rZ1MzSmhhMlZ1Vlc1cGNTQTZKeXdnY1hWaGJuUnBiR1VvYldWMFlXZGxibTl0YVdOelgyMWhjM1JsY2lSdVpYZGZaWE4wWDNKbFlXUnpYMkp5WVd0bGJpd3dMakkxS1NrcFhHNWdZR0FpZlE9PSAtLT5cblxuYGBgclxucHJpbnQocGFzdGUwKCdMb3dlciBDSSBtYXBwZWQgYnkgS3Jha2VuVW5pcSA6JywgcXVhbnRpbGUobWV0YWdlbm9taWNzX21hc3RlciRuZXdfZXN0X3JlYWRzX2JyYWtlbiwwLjI1KSkpXG5gYGBcblxuPCEtLSBybmItc291cmNlLWVuZCAtLT5cbiJ9 -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxucHJpbnQocGFzdGUwKCdMb3dlciBDSSBtYXBwZWQgYnkgS3Jha2VuVW5pcSA6JywgcXVhbnRpbGUobWV0YWdlbm9taWNzX21hc3RlciRuZXdfZXN0X3JlYWRzX2JyYWtlbiwwLjI1KSkpXG5gYGAifQ== -->
+<pre class="r"><code>print(paste0(&#39;Lower CI mapped by KrakenUniq :&#39;, quantile(metagenomics_master$new_est_reads_braken,0.25)))</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiWzFdIFwiTG93ZXIgQ0kgbWFwcGVkIGJ5IEtyYWtlblVuaXEgOjExMFwiXG4ifQ== -->
+<pre><code>[1] &quot;Lower CI mapped by KrakenUniq :110&quot;</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1zb3VyY2UtYmVnaW4gZXlKa1lYUmhJam9pWUdCZ2NseHVjSEpwYm5Rb2NHRnpkR1V3S0NkTWIzZGxjaUJEU1NCdFlYQndaV1FnWW5rZ1MzSmhhMlZ1Vlc1cGNTQTZKeXdnY1hWaGJuUnBiR1VvYldWMFlXZGxibTl0YVdOelgyMWhjM1JsY2lSdVpYZGZaWE4wWDNKbFlXUnpYMkp5WVd0bGJpd3dMamMxS1NrcFhHNWdZR0FpZlE9PSAtLT5cblxuYGBgclxucHJpbnQocGFzdGUwKCdMb3dlciBDSSBtYXBwZWQgYnkgS3Jha2VuVW5pcSA6JywgcXVhbnRpbGUobWV0YWdlbm9taWNzX21hc3RlciRuZXdfZXN0X3JlYWRzX2JyYWtlbiwwLjc1KSkpXG5gYGBcblxuPCEtLSBybmItc291cmNlLWVuZCAtLT5cbiJ9 -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxucHJpbnQocGFzdGUwKCdMb3dlciBDSSBtYXBwZWQgYnkgS3Jha2VuVW5pcSA6JywgcXVhbnRpbGUobWV0YWdlbm9taWNzX21hc3RlciRuZXdfZXN0X3JlYWRzX2JyYWtlbiwwLjc1KSkpXG5gYGAifQ== -->
+<pre class="r"><code>print(paste0(&#39;Lower CI mapped by KrakenUniq :&#39;, quantile(metagenomics_master$new_est_reads_braken,0.75)))</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiWzFdIFwiTG93ZXIgQ0kgbWFwcGVkIGJ5IEtyYWtlblVuaXEgOjMyNFwiXG4ifQ== -->
+<pre><code>[1] &quot;Lower CI mapped by KrakenUniq :324&quot;</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1zb3VyY2UtYmVnaW4gZXlKa1lYUmhJam9pWUdCZ2NseHVjSEpwYm5Rb2NHRnpkR1V3S0NkRklHTnZiR2tnYVdSbGJuUnBabWxsWkNCaWVTQnRaWFJoY0doc1lXNGdhVzRnT2lCdVBTY3NJRzV5YjNjb2JXVjBZV2RsYm05dGFXTnpYMjFoYzNSbGNsdHRaWFJoWjJWdWIyMXBZM05mYldGemRHVnlKR052ZG1WeVlXZGxYMjFsZEdGd2FHeGhiajR3TEYwcEtTbGNibUJnWUNKOSAtLT5cblxuYGBgclxucHJpbnQocGFzdGUwKCdFIGNvbGkgaWRlbnRpZmllZCBieSBtZXRhcGhsYW4gaW4gOiBuPScsIG5yb3cobWV0YWdlbm9taWNzX21hc3RlclttZXRhZ2Vub21pY3NfbWFzdGVyJGNvdmVyYWdlX21ldGFwaGxhbj4wLF0pKSlcbmBgYFxuXG48IS0tIHJuYi1zb3VyY2UtZW5kIC0tPlxuIn0= -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxucHJpbnQocGFzdGUwKCdFIGNvbGkgaWRlbnRpZmllZCBieSBtZXRhcGhsYW4gaW4gOiBuPScsIG5yb3cobWV0YWdlbm9taWNzX21hc3RlclttZXRhZ2Vub21pY3NfbWFzdGVyJGNvdmVyYWdlX21ldGFwaGxhbj4wLF0pKSlcbmBgYCJ9 -->
+<pre class="r"><code>print(paste0(&#39;E coli identified by metaphlan in : n=&#39;, nrow(metagenomics_master[metagenomics_master$coverage_metaphlan&gt;0,])))</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiWzFdIFwiRSBjb2xpIGlkZW50aWZpZWQgYnkgbWV0YXBobGFuIGluIDogbj0xM1wiXG4ifQ== -->
+<pre><code>[1] &quot;E coli identified by metaphlan in : n=13&quot;</code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->

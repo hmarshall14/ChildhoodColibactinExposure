@@ -1,0 +1,1 @@
+Missense	8	48043044	CCTCG>ACTCT

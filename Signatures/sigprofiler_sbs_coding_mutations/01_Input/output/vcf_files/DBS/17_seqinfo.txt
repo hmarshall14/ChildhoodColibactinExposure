@@ -1,0 +1,2 @@
+Missense	17	5439000	Q:C[GC>AA]C	0
+Missense	17	18959607	Q:C[AC>CT]G	0

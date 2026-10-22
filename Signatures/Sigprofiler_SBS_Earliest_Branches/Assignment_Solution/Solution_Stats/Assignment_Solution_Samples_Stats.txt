@@ -1,4 +1,0 @@
-Sample Names	Total Mutations	Cosine Similarity	L1 Norm	L1_Norm_%	L2 Norm	L2_Norm_%	KL Divergence	Correlation
-all_patient_branches_less_than_50_max_end_100_unique	5149	0.985	1385.457	26.907%	202.624	17.837%	0.0791	0.981
-coli_neg_patient_branches_less_than_50_max_end_100_unique	2239	0.977	689.403	30.791%	105.655	21.152%	0.09995	0.971
-coli_pos_patient_branches_less_than_50_max_end_100_unique	2910	0.984	792.608	27.237%	119.665	18.681%	0.09448	0.981

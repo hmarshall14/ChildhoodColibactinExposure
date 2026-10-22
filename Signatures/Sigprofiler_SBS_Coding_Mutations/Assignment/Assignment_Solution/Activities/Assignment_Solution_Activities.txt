@@ -1,4 +1,0 @@
-Samples	SBS1	SBS5	SBS18	SBS88	SBS89
-all_muts_compiled	175243	176239	88210	150184	0
-all_nonsense	133	43	165	0	0
-all_missense	2756	3291	0	0	0

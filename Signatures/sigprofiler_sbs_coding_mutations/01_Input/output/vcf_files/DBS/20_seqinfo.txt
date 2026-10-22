@@ -1,0 +1,1 @@
+Missense	20	2835705	Q:C[AC>CT]A	0

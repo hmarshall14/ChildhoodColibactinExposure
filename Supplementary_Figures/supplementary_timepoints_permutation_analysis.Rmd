@@ -361,8 +361,8 @@ plot_timepoints <- function(df, title = "Observed") {
       breaks=c('known_pos_timepoint','cessation_timepoint'),
       values = c("known_pos_timepoint" = "#2E8B57",
                  "cessation_timepoint"     = "#FFA500"),
-      labels = c("Latest Possible Cessation",
-                 "Known Timepoint of Ongoing Exposure")
+      labels = c("Known Timepoint of Ongoing Exposure",
+                 "Latest Possible Cessation")
     ) +
     scale_y_continuous(limits = c(-1.3, 1.3), breaks = NULL) +
     labs(x = "Estimate (years)", y = NULL, colour = NULL, title = title) +
@@ -435,7 +435,7 @@ cessation_continuation_plt<-ggplot(perm_plot_df,aes(x = stat)) +
   annotate("text", x = obs_stat, y = Inf,
            label = ifelse(p_value<0.001,paste0("  Observed\n  P < 0.001"),paste0("  Observed\n  P = ", signif(p_value, 1))),
            hjust = 0, vjust = 1.5, colour = "hotpink3") +
-  labs(x = "Median(Timepoint of Continutation) − Median(Timepoint of Cessation) [years]",
+  labs(x = "Median (Timepoint of Continuation) − Median (Timepoint of Cessation) [years]",
        y = "Count",
        ) +
   theme_classic()+
