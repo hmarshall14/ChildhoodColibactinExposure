@@ -25,3 +25,11 @@ Processed mutation calls, metadata and summary tables required to run the code a
 Each `FigureX/` folder contains self-contained R markdowns that read from
 `Data/` using paths relative to the repository root. Clone the repo and
 knit from the root directory:
+
+## Licence
+
+Code released under the [MIT] licence. See `LICENSE`.
+
+## Contact
+
+Henry Marshall — hm14@sanger.ac.uk
