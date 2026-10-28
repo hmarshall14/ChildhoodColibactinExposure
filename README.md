@@ -10,6 +10,10 @@ Data and code to reproduce the analyses and figures in:
 Raw sequencing data are deposited on EGA (accession code EGAD00001015830).
 Processed mutation calls, metadata and summary tables required to run the code are in `Data/`.
 
+Within the folder `Data/`, 'Main_Outputs/' contain the main summary output data used in this manuscript.
+Outputs from re-analysis of *Lee-Six et al., Nature, 2019* are found in 'Data/Lee_Six_Nature_2019/'.
+Publically available data from *Robinson et al., Nature Communications, 2019*, *Robinson et al., Nature Genetics, 2021*, and *Cornish et al., Nature, 2024* that were used in analyses are found in their respective folders within 'Data/'.  
+
 ## Repository structure
 | Folder | Contents |
 |---|---|
