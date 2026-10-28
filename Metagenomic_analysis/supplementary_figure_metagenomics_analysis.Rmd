@@ -1,7 +1,15 @@
 
 ```{r}
-metaphlan_kraken_output_file<-'common_species.tsv'
+metaphlan_kraken_output_file<-'kraken_metaphlan_consensus_species.tsv'
 crypts_file <- '../Data/crypt_signature_attributions.csv'
+```
+
+```{r}
+library(dplyr)
+library(tidyverse)
+library(scales)
+library(ggplot2)
+library(patchwork)
 ```
 
 ```{r}
@@ -241,14 +249,6 @@ thresholds <- data.frame(
 )
 thresholds$coverage_X_required <-
   signif(thresholds$reads_required * bases_per_read / DEFAULT_GENOME, 3)
-wr(thresholds, "fig3b_thresholds.tsv")
-cat("\n--- thresholds ---\n"); print(thresholds)
-
-say("")
-say("=== COVERAGE ===")
-say(sprintf("Best taxon-in-sample coverage anywhere in the dataset: %.4fX", max_cov_overall))
-if (max_cov_overall < 0.05)
-  say("  -> Presence/absence at best. No abundance quantification, no strain typing.")
 
 ## ---------------------------------------------------------------------------
 ## 5. TAXON ANNOTATION + EVIDENCE  (FIGURE 1 data)
@@ -287,7 +287,6 @@ prov <- factor(prov, levels = PROV_LEVELS)
 
 contam$provenance <- prov[match(contam$taxon, rownames(mat))]
 contam <- contam[order(-contam$total_reads), ]
-wr(contam, "04_taxon_annotation_and_evidence.tsv")
 
 frac_impossible   <- sum(mat[prov == "impossible_clade", , drop = FALSE]) / sum(mat)
 frac_blacklisted  <- sum(mat[prov == "contaminant", , drop = FALSE]) / sum(mat)
@@ -295,12 +294,6 @@ frac_blacklisted  <- sum(mat[prov == "contaminant", , drop = FALSE]) / sum(mat)
 frac_contam_reads <- frac_blacklisted + frac_impossible
 frac_gut_reads    <- sum(mat[prov == "gut", , drop = FALSE]) / sum(mat)
 frac_env_clade    <- frac_impossible
-
-say("")
-say("=== PROVENANCE ===")
-say(sprintf("%.1f%% of classified reads: non-biological (%.1f%% blacklisted + %.1f%% impossible clades).",
-            100 * frac_contam_reads, 100 * frac_blacklisted, 100 * frac_impossible))
-say(sprintf("%.1f%% of classified reads: positive evidence of gut residency.", 100 * frac_gut_reads))
 
 ## --- internal false-positive control --------------------------------------
 ## Reads assigned to clades that cannot occur in a human colon (halophilic
@@ -310,23 +303,7 @@ say(sprintf("%.1f%% of classified reads: positive evidence of gut residency.", 1
 ## and it bounds how much of the rest of the table to believe. It is also a
 ## stronger argument than the blacklist, because it cannot be disputed on
 ## grounds of list curation.
-say("")
-say("=== INTERNAL FALSE-POSITIVE CONTROL ===")
-say(sprintf("%.1f%% of classified reads are assigned to biologically impossible clades.",
-            100 * frac_env_clade))
-if (frac_env_clade > 0.05) {
-  say(sprintf("  -> ~%.0f%% false-positive load. Any taxon must sit well above that",
-              100 * frac_env_clade))
-  say("     level before a difference in it can be taken seriously.")
-  say("     Worth checking whether these reads are GC-extreme or low-complexity:")
-  say("     if they pile onto a few regions rather than spreading, they are")
-  say("     misclassified host sequence rather than DNA from any organism.")
-}
 worst <- head(order(-rowSums(mat) * ann$env_clade), 20)
-wr(data.frame(taxon = ann$name[worst], reads = rowSums(mat)[worst],
-              lineage = lineage_all[worst], row.names = NULL),
-   "04c_impossible_clade_reads.tsv")
-
 ## --- decoy-based FDR: what abundance must a taxon exceed to be believed? ---
 ## Impossible clades are decoys. For a per-taxon abundance threshold x:
 ##   D(x) = decoy taxa above x
@@ -340,12 +317,8 @@ taxon_ab <- rowMeans(relab)                     # mean relative abundance
 
 if (is.na(DB_N_DECOY) || is.na(DB_N_TARGET)) {
   db_scale <- sum(!decoy_v) / max(sum(decoy_v), 1)
-  say("")
-  say("NOTE: database decoy proportion not supplied; using the ratio observed")
-  say("      in this table. That is biased downwards -- set DB_N_DECOY and")
-  say("      DB_N_TARGET from kraken2-inspect for a defensible FDR.")
+
 } else {
-  db_scale <- DB_N_TARGET / DB_N_DECOY
 }
 
 grid <- sort(unique(c(0, stats::quantile(taxon_ab[taxon_ab > 0],
@@ -360,7 +333,6 @@ fdr_tab <- do.call(rbind, lapply(grid, function(x) {
              FDR = if (T_ > 0) signif(min(1, D * db_scale / T_), 3) else NA_real_,
              stringsAsFactors = FALSE)
 }))
-wr(fdr_tab, "04d_decoy_fdr_curve.tsv")
 
 ok_idx <- which(!is.na(fdr_tab$FDR) & fdr_tab$FDR <= FDR_TARGET)
 say("")
@@ -387,8 +359,6 @@ cand <- data.frame(sample = samples, classified_reads = as.integer(libsize),
                    in_lowest_5pct_depth = libsize <= quantile(libsize, 0.05),
                    stringsAsFactors = FALSE)
 cand <- cand[cand$name_looks_like_blank | cand$in_lowest_5pct_depth, ]
-wr(cand, "05_candidate_negative_controls.tsv")
-say(sprintf("Candidate blanks flagged by name or depth: %d (see 05_*.tsv).", nrow(cand)))
 
 ## ---------------------------------------------------------------------------
 ## 6. FIGURE 2 data: per-sample composition
@@ -450,212 +420,37 @@ say("     point: those reads have a true abundance of zero in every sample.")
 ## ---------------------------------------------------------------------------
 
 gut_i <- which(prov == "gut")
-if (length(gut_i) == 0) {
-  warning("No gut-allowlisted taxa -- Figure 3 cannot be built.")
-  fig3 <- NULL
-} else {
-  gmat <- mat[gut_i, , drop = FALSE]
-  gcov <- cov_mat[gut_i, , drop = FALSE]
-  pos  <- function(x) if (any(x > 0)) x[x > 0] else NA_real_
+gmat <- mat[gut_i, , drop = FALSE]
+gcov <- cov_mat[gut_i, , drop = FALSE]
+pos  <- function(x) if (any(x > 0)) x[x > 0] else NA_real_
 
-  fig3 <- data.frame(
-    sample      = samples,
-    total_reads = as.integer(libsize),
-    gut_reads   = as.integer(colSums(gmat)),
-    gut_relab   = round(colSums(gmat) / pmax(libsize, 1), 5),
-    # summed genome equivalents: an upper bound on gut-derived DNA present
-    gut_genome_equivalents = signif(colSums(gcov), 3),
-    # the honest per-organism number -- summing across taxa overstates what
-    # you can actually do with any single one of them
-    max_gut_coverage_X    = signif(apply(gcov, 2, max), 3),
-    median_gut_coverage_X = signif(apply(gcov, 2, function(x) stats::median(pos(x))), 3),
-    # counts of INDIVIDUAL gut taxa clearing each per-taxon bar in this sample.
-    # These, not the sample's total gut reads, are what determine whether an
-    # abundance comparison is possible.
-    n_gut_detected           = colSums(gmat >= T_DETECT),
-    n_gut_quantifiable_2x    = colSums(gmat >= T_QUANT_2X),
-    n_gut_quantifiable_15x   = colSums(gmat >= T_QUANT_15X),
-    n_gut_breadth_verifiable = colSums(gcov >= T_BREADTH_X),
-    # both conditions at once -- the number that actually matters
-    n_gut_usable_2x          = colSums(gmat >= T_USABLE_2X),
-    n_gut_usable_15x         = colSums(gmat >= T_USABLE_15X),
-    stringsAsFactors = FALSE
-  )
-  fig3 <- fig3[order(-fig3$gut_reads), ]
-  wr(fig3, "fig3_sample_gut_coverage.tsv")
+fig3 <- data.frame(
+  sample      = samples,
+  total_reads = as.integer(libsize),
+  gut_reads   = as.integer(colSums(gmat)),
+  gut_relab   = round(colSums(gmat) / pmax(libsize, 1), 5),
+  # summed genome equivalents: an upper bound on gut-derived DNA present
+  gut_genome_equivalents = signif(colSums(gcov), 3),
+  # the honest per-organism number -- summing across taxa overstates what
+  # you can actually do with any single one of them
+  max_gut_coverage_X    = signif(apply(gcov, 2, max), 3),
+  median_gut_coverage_X = signif(apply(gcov, 2, function(x) stats::median(pos(x))), 3),
+  # counts of INDIVIDUAL gut taxa clearing each per-taxon bar in this sample.
+  # These, not the sample's total gut reads, are what determine whether an
+  # abundance comparison is possible.
+  n_gut_detected           = colSums(gmat >= T_DETECT),
+  n_gut_quantifiable_2x    = colSums(gmat >= T_QUANT_2X),
+  n_gut_quantifiable_15x   = colSums(gmat >= T_QUANT_15X),
+  n_gut_breadth_verifiable = colSums(gcov >= T_BREADTH_X),
+  # both conditions at once -- the number that actually matters
+  n_gut_usable_2x          = colSums(gmat >= T_USABLE_2X),
+  n_gut_usable_15x         = colSums(gmat >= T_USABLE_15X),
+  stringsAsFactors = FALSE
+)
+fig3 <- fig3[order(-fig3$gut_reads), ]
+  
 
-  fig3c <- data.frame(
-    taxon = rownames(gmat),
-    total_reads = rowSums(gmat),
-    max_reads_in_a_sample = apply(gmat, 1, max),
-    max_coverage_X = signif(apply(gcov, 1, max), 3),
-    n_samples_detected     = rowSums(gmat >= T_DETECT),
-    n_samples_breadth      = rowSums(gcov >= T_BREADTH_X),
-    n_samples_quantifiable = rowSums(gmat >= T_QUANT_2X),
-    stringsAsFactors = FALSE
-  )
-  fig3c <- fig3c[order(-fig3c$total_reads), ]
-  wr(fig3c, "fig3c_gut_taxon_detail.tsv")
 
-  say("")
-  say("=== FIGURE 3: is gut coverage sufficient to compare abundance? ===")
-  say(sprintf("Gut reads per sample: median %s (%.1f%% of classified).",
-              format(round(median(fig3$gut_reads)), big.mark = ","),
-              100 * median(fig3$gut_relab)))
-  say(sprintf("Best-covered gut taxon per sample: median %.5fX, max anywhere %.4fX.",
-              stats::median(fig3$max_gut_coverage_X), max(fig3$max_gut_coverage_X)))
-  say(sprintf("Samples with >=1 gut taxon breadth-verifiable (%.2fX): %d/%d (%.1f%%)",
-              T_BREADTH_X, sum(fig3$n_gut_breadth_verifiable > 0), nrow(fig3),
-              100 * mean(fig3$n_gut_breadth_verifiable > 0)))
-  say("")
-  say("PER-TAXON counts (a sample's TOTAL gut reads is not comparable to these):")
-  say(sprintf("  >=1 gut taxon detected (>=%d reads):            %d/%d (%.1f%%), median %.0f taxa",
-              T_DETECT, sum(fig3$n_gut_detected > 0), nrow(fig3),
-              100 * mean(fig3$n_gut_detected > 0), stats::median(fig3$n_gut_detected)))
-  say(sprintf("  >=1 quantifiable to 2-fold (>=%d reads):        %d/%d (%.1f%%), median %.0f taxa",
-              T_QUANT_2X, sum(fig3$n_gut_quantifiable_2x > 0), nrow(fig3),
-              100 * mean(fig3$n_gut_quantifiable_2x > 0),
-              stats::median(fig3$n_gut_quantifiable_2x)))
-  say(sprintf("  >=1 quantifiable to 1.5-fold (>=%d reads):      %d/%d (%.1f%%), median %.0f taxa",
-              T_QUANT_15X, sum(fig3$n_gut_quantifiable_15x > 0), nrow(fig3),
-              100 * mean(fig3$n_gut_quantifiable_15x > 0),
-              stats::median(fig3$n_gut_quantifiable_15x)))
-  say(sprintf("  >=1 USABLE (breadth + 2-fold, >=%d reads):      %d/%d (%.1f%%), median %.0f taxa",
-              T_USABLE_2X, sum(fig3$n_gut_usable_2x > 0), nrow(fig3),
-              100 * mean(fig3$n_gut_usable_2x > 0),
-              stats::median(fig3$n_gut_usable_2x)))
-  say("  -> Breadth, not shot noise, is the binding constraint: verifying a")
-  say("     taxon is really present takes ~7x more reads than resolving a")
-  say("     1.5-fold difference in it once you believe it.")
-  say("  -> Below these floors, no sample size rescues the comparison, because")
-  say("     the limit is per-sample shot noise rather than n.")
-}
-
-## ---------------------------------------------------------------------------
-## 8. QUICKLOOK PLOTS (rough versions of the three figures, to sanity-check
-##    the data frames before making publication versions elsewhere)
-## ---------------------------------------------------------------------------
-
-pcol <- c(contaminant = "firebrick", impossible_clade = "black",
-          gut = "darkgreen", oral = "goldenrod",
-          unclassified = "grey60", unnamed_sgb = "grey80")
-pdf(file.path(OUTDIR, "quicklook.pdf"), width = 10, height = 8)
-op <- par(mfrow = c(2, 2), mar = c(4.5, 4.5, 3, 1))
-
-# Fig 1: reads vs relative abundance per taxon
-plot(contam$total_reads + 1, contam$mean_relab + 1e-7, log = "xy", pch = 19, cex = .5,
-     col = pcol[as.character(contam$provenance)],
-     xlab = "reads (total across samples)", ylab = "mean relative abundance",
-     main = "Fig 1: taxa by provenance")
-legend("bottomright", names(pcol), col = pcol, pch = 19, bty = "n", cex = .7)
-
-# Fig 2: non-biological vs gut relative abundance per sample, shaded by how
-# much of the non-biological load is impossible-clade
-shade <- grDevices::colorRampPalette(c("grey70", "black"))(100)[
-  pmax(1, pmin(100, ceiling(99 * fig2$relab_impossible_clade /
-                              max(fig2$relab_impossible_clade, 1e-9)) + 1))]
-plot(fig2$relab_nonbiological, fig2$relab_gut, pch = 19, cex = .5, col = shade,
-     xlim = c(0, 1), xlab = "non-biological relative abundance",
-     ylab = "gut relative abundance",
-     main = "Fig 2: per-sample composition")
-abline(a = 1, b = -1, lty = 3)
-legend("topright", "darker = more\nimpossible-clade", bty = "n", cex = .7)
-
-# Fig 3a: coverage of the BEST SINGLE gut taxon per sample.
-# All threshold lines are HORIZONTAL, because both axes must be per-taxon for
-# the comparison to mean anything. The x-axis (a sample's total gut reads
-# summed over ~120 taxa) is NOT comparable to a per-taxon threshold -- an
-# earlier version drew those as vertical lines and it was misleading.
-if (!is.null(fig3)) {
-  cov_of <- function(reads) reads * bases_per_read / DEFAULT_GENOME
-  plot(fig3$gut_reads + 1, fig3$max_gut_coverage_X + 1e-9, log = "xy", pch = 19,
-       cex = .5, col = "darkgreen",
-       xlab = "total gut reads per sample (all taxa)",
-       ylab = "coverage of BEST SINGLE gut taxon (X)",
-       main = "Fig 3a: per-taxon coverage")
-  abline(h = cov_of(T_DETECT),    col = "grey50",   lty = 3)
-  abline(h = cov_of(T_QUANT_2X),  col = "steelblue", lty = 2)
-  abline(h = cov_of(T_QUANT_15X), col = "steelblue", lty = 1)
-  abline(h = T_BREADTH_X,         col = "firebrick", lty = 2)
-  legend("topleft", bty = "n", cex = .65,
-         legend = c(sprintf("detect (%d reads)", T_DETECT),
-                    sprintf("2-fold floor (%d)", T_QUANT_2X),
-                    sprintf("1.5-fold floor (%d)", T_QUANT_15X),
-                    sprintf("breadth-verifiable (%d)", T_BREADTH_READS)),
-         col = c("grey50", "steelblue", "steelblue", "firebrick"),
-         lty = c(3, 2, 1, 2))
-
-  # Fig 3b: the question "can this sample support a comparison?" answered
-  # directly -- how many individual gut taxa clear each per-taxon bar.
-  bars <- rbind(
-    detected      = table(factor(pmin(fig3$n_gut_detected, 5), levels = 0:5)),
-    quant_2fold   = table(factor(pmin(fig3$n_gut_quantifiable_2x, 5), levels = 0:5)),
-    quant_1.5fold = table(factor(pmin(fig3$n_gut_quantifiable_15x, 5), levels = 0:5)),
-    usable_2fold  = table(factor(pmin(fig3$n_gut_usable_2x, 5), levels = 0:5))
-  )
-  barplot(t(bars / nrow(fig3)), beside = FALSE, horiz = TRUE, las = 1,
-          col = grDevices::grey.colors(6, start = .15, end = .95),
-          xlab = "fraction of samples",
-          main = "Fig 3b: gut taxa clearing each bar",
-          cex.names = .6)
-  legend("bottomright", legend = c("0", "1", "2", "3", "4", "5+"),
-         fill = grDevices::grey.colors(6, start = .15, end = .95),
-         bty = "n", cex = .6, title = "n taxa")
-}
-par(op); dev.off()
-
-## ---------------------------------------------------------------------------
-## 9. VERDICT
-## ---------------------------------------------------------------------------
-
-say("")
-say("=== BOTTOM LINE ===")
-pass_depth  <- median(libsize) >= 1000
-pass_cov    <- max_cov_overall >= T_BREADTH_X
-pass_contam <- frac_contam_reads < 0.5
-pass_gut    <- frac_gut_reads >= 0.25
-pass_env    <- frac_env_clade < MAX_IMPOSSIBLE_FRAC
-pass_quant  <- !is.null(fig3) && mean(fig3$n_gut_usable_2x > 0) >= 0.5
-
-chk <- function(b, s) say(sprintf("  [%s] %s", ifelse(b, "PASS", "FAIL"), s))
-chk(pass_depth,  sprintf("Median classified depth >= 1,000 reads (actual: %s)",
-                         format(round(median(libsize)), big.mark = ",")))
-chk(pass_cov,    sprintf("Some taxon reaches %.2fX coverage (actual max: %.4fX)",
-                         T_BREADTH_X, max_cov_overall))
-chk(pass_contam, sprintf("Non-biological reads are <50%% (actual: %.0f%% = %.0f%% blacklisted + %.1f%% impossible)",
-                         100 * frac_contam_reads, 100 * frac_blacklisted,
-                         100 * frac_impossible))
-chk(pass_gut,    sprintf("Gut taxa are >=25%% of reads (actual: %.0f%%)",
-                         100 * frac_gut_reads))
-chk(pass_env,    sprintf("Impossible clades are <%.0f%% of reads (actual: %.1f%%) [convention, not a standard]",
-                         100 * MAX_IMPOSSIBLE_FRAC, 100 * frac_env_clade))
-chk(pass_quant,  sprintf("Most samples have >=1 USABLE gut taxon, i.e. >=%d reads for ONE organism (actual: %.1f%%)",
-                         T_USABLE_2X,
-                         if (is.null(fig3)) 0 else 100 * mean(fig3$n_gut_usable_2x > 0)))
-
-if (all(c(pass_depth, pass_cov, pass_contam, pass_gut, pass_env, pass_quant))) {
-  say("")
-  say("=> Proceed to 02_association_testing.R, restricted to gut-allowlisted")
-  say("   taxa above the quantification floor, always adjusting for depth.")
-} else {
-  say("")
-  say("=> Checks FAILED. The defensible conclusion is that this dataset cannot")
-  say("   support claims about associations between the microbiome and")
-  say("   colibactin mutagenesis. Report the diagnostics as the result.")
-  say("")
-  say("   Figures supporting that conclusion:")
-  say("     Fig 1  04_taxon_annotation_and_evidence.tsv")
-  say("     Fig 2  fig2_sample_composition_wide.tsv / _long.tsv")
-  say("     Fig 3  fig3_sample_gut_coverage.tsv + fig3b_thresholds.tsv")
-  say("     also   04c_impossible_clade_reads.tsv (internal FP control)")
-  say("")
-  say("   The colibactin question itself is better addressed by a targeted")
-  say("   read-level screen of the pks island (clbA-clbS) against the")
-  say("   non-human FASTQs, with a breadth-of-coverage threshold.")
-}
-
-writeLines(verdict, file.path(OUTDIR, "VERDICT.txt"))
-cat("\nWritten to: ", normalizePath(OUTDIR), "\n", sep = "")
 ```
 
 
@@ -673,6 +468,7 @@ fig1_scatter<-ggplot(data=contam, aes(x=total_reads,y=mean_relab,col=provenance)
                                'Unclassified','Unnamed_SGB'))+
   scale_x_log10() +
   scale_y_log10()+
+  theme_classic()+
   labs(x='Total read across samples',y='Mean relative abundance across samples',
        col='Species Classification')+
   theme(axis.title = element_text(size=20,face='bold'),
@@ -691,6 +487,7 @@ fig1_bar<-ggplot(data=top10_rel_ab, aes(x=mean_relab,y=fct_reorder(species,mean_
                                'Unclassified','Unnamed_SGB'))+
   labs(y='',fill='',x='Mean relative abundance\nacross samples')+
   scale_x_continuous(labels=label_percent())+
+  theme_classic()+
   theme(axis.title = element_text(size=20,face='bold'),
         axis.text = element_text(size=16,face='bold'),
         legend.position='none',
@@ -698,19 +495,13 @@ fig1_bar<-ggplot(data=top10_rel_ab, aes(x=mean_relab,y=fct_reorder(species,mean_
         legend.text = element_text(size=16,face='bold')
         )
 
-svglite::svglite('/Users/hm14/Documents/metagenomics/mean_read_abundance_all_bacteria.svg',width=18,height=10)
-fig1_scatter+fig1_bar+
-  plot_layout(widths = c(3, 1))
-dev.off()
+
+supp_fig10a_combined<-fig1_scatter+fig1_bar+plot_layout(widths = c(3, 1))
+ggsave('./supp_fig10a_mean_read_abundance_all_bacteria.png',supp_fig10a_combined,width=18,height=10,dpi=200)
 ```
 
 plot figure 2 : relative reads verus relative abundance
 ```{r}
-plot(fig2$relab_contaminant, fig2$relab_gut, pch = 19, cex = .5, col = "grey30",
-     xlim = c(0, 1), xlab = "contaminant relative abundance",
-     ylab = "gut relative abundance", main = "Fig 2: per-sample composition")
-abline(a = 1, b = -1, lty = 3)
-
 prop_nonbiological_enriched=round(nrow(fig2[fig2$relab_nonbiological>0.5,])/nrow(fig2),2)*100
 
 contaminant_gut_relab_plt<-ggplot(data=fig2,aes(x=relab_gut,y=relab_nonbiological ,col='grey30'))+
@@ -721,7 +512,7 @@ contaminant_gut_relab_plt<-ggplot(data=fig2,aes(x=relab_gut,y=relab_nonbiologica
        y="Combined relative abundance of contaminant taxa per sample")+
   geom_hline(yintercept=0.5,linewidth=1,linetype=5,col='grey30')+
   geom_text(label=paste0('Contaminant taxa > 50% of reads\n[',prop_nonbiological_enriched,'% of samples]'), ,x=Inf,hjust=1,vjust=0.50,y=0.5,
-            col='grey30',size=6,col='grey30')+
+            col='black',size=6,col='black')+
   theme_classic()+
   theme(axis.title = element_text(size=20,face='bold'),
         axis.text = element_text(size=16,face='bold'),
@@ -744,13 +535,11 @@ impossible_gut_relab_plt<-ggplot(data=fig2,aes(x=relab_gut,y=relab_impossible_cl
         legend.text = element_text(size=16,face='bold')
         )
 
-combined=contaminant_gut_relab_plt|impossible_gut_relab_plt
+supp_fig10b_combined=contaminant_gut_relab_plt|impossible_gut_relab_plt
+ggsave('./supp_fig10b_relab_nonbio_impossible.png',supp_fig10b_combined,width=18,height=10,dpi=200)
+```
 
-ggsave('/Users/hm14/Documents/metagenomics/relab_nonbio_impossible.png',combined,width=18,height=10,dpi=200)
-contaminant_gut_relab_plt|impossible_gut_relab_plt
-#  plot_layout(widths = c(1, 1))
-dev.off()
-
+```{r}
 #summary statistics
 print(median(fig2$relab_nonbiological))
 print(paste0('IQR: [',round(quantile(fig2$relab_nonbiological,0.25),2),', ',round(quantile(fig2$relab_nonbiological,0.75),2),']'))
@@ -760,29 +549,8 @@ print(round(median(fig2$relab_impossible_clade),2))
 print(paste0('IQR: [',round(quantile(fig2$relab_impossible_clade,0.25),2),', ',round(quantile(fig2$relab_impossible_clade,0.75),2),']'))
 print(paste0('Proportion of samples :',nrow(fig2[fig2$relab_impossible_clade>0,])/nrow(fig2)))
 ```
-```{r}
-ggplot(data=fig3,aes(x=gut_reads, y=max_gut_coverage_X))+
-  
-  scale_x_log10()+
-  scale_y_log10()+
-  labs(x='Gut taxa reads per sample',y='Coverage of best gut taxon per sample [X]')+
-  geom_hline(yintercept=0.05,col='firebrick',linetype=5)+
-  geom_vline(xintercept=T_QUANT_15X,col='steelblue',linetype=5)+
-  geom_vline(xintercept=T_QUANT_2X,col='steelblue',linetype=5)+
-  geom_text(label='Coverage 0.05X' ,x=log10(100000),hjust=-0.02,vjust=-0.5,y=log10(0.05),
-            col='black',size=3)+
-  geom_text(label='' ,x=0.5,hjust=-0.02,vjust=-0.5,y=0.5,
-            col='black',size=6,col='grey30')+
-  geom_text(label='' ,x=0.5,hjust=-0.02,vjust=-0.5,y=0.5,
-            col='grey30',size=6,col='grey30')+
-  geom_point()+
-   theme(axis.title = element_text(size=20,face='bold'),
-        axis.text = element_text(size=16,face='bold'),
-        legend.position='none',
-        legend.title = element_text(size=20,face='bold'),
-        legend.text = element_text(size=16,face='bold')
-        )
 
+```{r}
 # print summary statistics:
 print(paste0('Number of samples meeting threshold 1: ',nrow(fig3[fig3$max_gut_coverage_X>0.05,])))
 print(paste0('Median taxa for  samples meeting threshold 1: ',median(fig3[fig3$max_gut_coverage_X>0.05,]$n_gut_breadth_verifiable)))
@@ -796,16 +564,18 @@ cov_of <- function(reads) reads * bases_per_read / DEFAULT_GENOME
 coverage_plt<-ggplot(data=fig3,aes(x=gut_reads+1,y=max_gut_coverage_X+1e-9))+
   scale_x_log10()+
   scale_y_log10()+
+  coord_cartesian(ylim=c(0.0001,50))+
   labs(x='Total gut taxa reads per sample',
        y='Coverage of best single gut taxon [X]')+
+  geom_point(col='grey10')+
   geom_hline(yintercept=cov_of(T_DETECT),col="grey50",linetype=5)+
   geom_text(label='Bacteria detectable [min 10 reads]',x=Inf,vjust=-0.5,hjust=1.02,size=5,y=log10(cov_of(T_DETECT)),col="grey50",inherit.aes = FALSE)+
   
   geom_hline(yintercept=cov_of(T_QUANT_2X),  col = "steelblue", linetype = 2)+
   geom_text(label='Detect 2-fold change [min 33 reads]',x=Inf,vjust=-0.5,hjust=1.02,size=5,y=log10(cov_of(T_QUANT_2X)),col="steelblue")+
   geom_hline(yintercept=T_BREADTH_X,  col = "firebrick", linetype = 2)+
-  geom_text(label='Genome breadth-verifiable coverage\n[min 667 reads]',x=Inf,vjust=0.5,hjust=1.02,y=log10(T_BREADTH_X),size=5,col="firebrick")+
-  geom_point(col='grey10')+
+  geom_text(label='Genome breadth-verifiable\n[min 667 reads]',x=Inf,vjust=0.5,hjust=1.02,y=log10(T_BREADTH_X),size=5,col="firebrick")+
+  theme_classic()+
   theme(axis.title = element_text(size=20,face='bold'),
         axis.text = element_text(size=16,face='bold'),
         legend.position='none',
@@ -832,14 +602,13 @@ detectable_plt<-ggplot(data=summary_taxa_dataected,aes(x=threshold,fill=name,y=v
   scale_fill_manual(breaks=c(5,4,3,2,1,0),
                     labels=c('5+','4','3','2','1','0'),
                     values=c('grey0','grey20','grey40','grey60','grey80','grey100'))+
+  theme_classic()+
   theme(axis.title = element_text(size=20,face='bold'),
         axis.text = element_text(size=16,face='bold'),
         legend.position='bottom',
         legend.title = element_text(size=20,face='bold'),
         legend.text = element_text(size=16,face='bold')
         )
-coverage_combined<-coverage_plt|detectable_plt+
-  plot_layout(width=c(10,1))
-ggsave('/Users/hm14/Documents/metagenomics/gut_taxa_coverage.png',coverage_combined,width=18,height=10,dpi=150)
+supp_fig10c_combined<-coverage_plt|detectable_plt+plot_layout(width=c(10,1))
+ggsave('./supp_fig10c_gut_taxa_coverage.png',supp_fig10c_combined,width=18,height=10,dpi=150)
 ```
-```{r}
