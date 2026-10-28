@@ -23,8 +23,7 @@ Processed mutation calls, metadata and summary tables required to run the code a
 ## Reproducing the analyses
 
 Each `FigureX/` folder contains self-contained R markdowns that read from
-`Data/` using paths relative to the repository root. Clone the repo and
-knit from the root directory:
+`Data/` using paths relative to the repository root.
 
 ## Licence
 
