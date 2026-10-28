@@ -7,7 +7,7 @@ Data and code to reproduce the analyses and figures in:
 
 ## Data availability
 
-Raw sequencing data are deposited on EGA (accession code EGAD00001015830)
+Raw sequencing data are deposited on EGA (accession code EGAD00001015830).
 Processed mutation calls, metadata and summary tables required to run the code are in `Data/`.
 
 ## Repository structure
