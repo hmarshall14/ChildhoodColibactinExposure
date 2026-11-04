@@ -17,17 +17,15 @@ Publically available data from *Robinson et al., Nature Communications, 2019*, *
 ## Repository structure
 | Folder | Contents |
 |---|---|
-| `Data/` | Contains summary data required to reproduce analyses in publication  |
-| `Signatures/` | Contains folders detailing extraction of signatures using SigProfiler and msigHDP, and outputs from attribution per crypt using different signature attribution methods |
-| `snv_phylogenetic_trees/` | Phylogenetic trees built from shared SNVs |
-| `Metagenomic_analysis/` | kraken2/metaphlan consensus outputs, with scripts and summary figures used in publications |
-| `Figure1/` – `Figure4/` | R markdowns generating each main figure with associated figure outputs |
-| `Supplementary_Figures/` | R markdowns for supplementary figures with associated figure outputs |
-
-## Reproducing the analyses
-
-Each `FigureX/` folder contains self-contained R markdowns that read from
-`Data/` using paths relative to the repository root.
+| `Data/` | Contains summary data required to reproduce analyses in publication.  |
+| `Signatures/` | Contains folders detailing extraction of signatures using SigProfiler and msigHDP, and outputs from attribution per crypt using different signature attribution methods. |
+| `snv_phylogenetic_trees/` | Phylogenetic trees built from shared SNVs. |
+| `Metagenomic_analysis/` | kraken2/metaphlan consensus outputs, with scripts and summary figures used in publication. |
+| `Figure1/` | R markdowns associated with Figure 1 and manuscript sections: "Study participants and samples" and "Background mutation rates". |
+| `Figure2/` | R markdowns associated with Figure 2 and manuscript section: "Prevalence and mutation burden of colibactin mutagenesis". |
+| `Figure3/` | R markdowns associated with Figure 3. |
+| `Figure4/` | R markdowns associated with Figure 4 and manuscript sections: "Timing of colibactin mutagenesis". |
+| `Supplementary_Figures/` | R markdowns for supplementary figures.  |
 
 ## Licence
 
