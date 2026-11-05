@@ -1,2 +1,3 @@
+Contains code for the section of the manuscript 'Timing of colibactin mutagenesis.' 
 
-timing_of_colibactin_mutagenesis.Rmd contains code to generate statistics presented in the section of the manuscript 'Timing of colibactin mutagenesis.' It specifically contains the code to generate Figure 4.A and Figure 4.B
+`timing_of_colibactin_mutagenesis.Rmd` contains the code to generage all output analyses in this section of the manuscript, Figure 4, and Supplementary Figure 10.
