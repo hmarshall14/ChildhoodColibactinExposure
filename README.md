@@ -27,10 +27,6 @@ Publically available data from *Robinson et al., Nature Communications, 2019*, *
 | `Figure4/` | R markdowns associated with Figure 4 and manuscript sections: "Timing of colibactin mutagenesis." |
 | `Supplementary_Figures/` | R markdowns for supplementary figures.  |
 
-## Licence
-
-Code released under the [MIT] licence. See `LICENSE`.
-
 ## Contact
 
 Henry Marshall — hm14@sanger.ac.uk
