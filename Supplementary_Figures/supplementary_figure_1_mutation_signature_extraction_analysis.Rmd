@@ -28,7 +28,7 @@ hdp_component_prop<-ggplot(data=msighdp_components_proportions,aes(x=donor,y=val
   geom_bar(stat='identity')+
   scale_fill_manual(breaks=c('hdp.1','hdp.2','hdp.3','hdp.4'),
                     labels=c('HDP_1','HDP_2','HDP_3','HDP_4'),
-                    values=c('wheat3','maroon4','hotpink3','limegreen'))+
+                    values=c('maroon4','wheat3','hotpink3','limegreen'))+
   scale_y_continuous(label=label_percent())+
   labs(y='Component contribution [%]',
        x='Donor ID',

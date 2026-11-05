@@ -42,18 +42,18 @@ library(emmeans)
 ## Data
 
 ```{r paths}
-data_dir <- file.path("..", "Data")
+data_dir <- file.path("..", "Data/")
 ```
 
 ```{r load-data}
-crypt_metadata <- read.csv(file.path(data_dir, "biopsy_metadata.csv"))
+crypt_metadata <- read.csv(file.path(data_dir, "Main_Outputs/biopsy_metadata.csv"))
 
 crypt_signature_attributions <- read.csv(
-  file.path(data_dir, "crypt_signature_attributions.csv")
+  file.path(data_dir, "Main_Outputs/crypt_signature_attributions.csv")
 )
 
 lee_six_nature_2019 <- read.csv(
-  file.path(data_dir, "lee_six_nature_2019_sbs_id_attribution.csv")
+  file.path(data_dir, "Lee_Six_Nature_2019/lee_six_nature_2019_sbs_id_attribution.csv")
 )
 ```
 

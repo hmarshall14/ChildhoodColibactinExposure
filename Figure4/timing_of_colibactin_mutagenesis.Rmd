@@ -1,7 +1,5 @@
 ---
 title: "Timing of colibactin mutagenesis"
-author: "ADD AUTHOR NAME"
-date: "`r format(Sys.Date(), '%d %B %Y')`"
 output:
   github_document:
     toc: true
@@ -144,7 +142,7 @@ build_crypt_pileup <- function(tree_dir, tip_sens, crypt_pattern = "PD|HLS|O|\\_
 
     crypts <- tree_df$label %>%
       unique() %>%
-      discard(is.na) %>%
+      purrr::discard(is.na) %>%
       keep(~ str_detect(.x, crypt_pattern))
 
     pileups[[patient]] <- map_dfr(
@@ -496,9 +494,9 @@ summarise_timepoints <- function(bar, patient_fn = median) {
 
 ```{r paed-load}
 crypt_signature_attributions <- read.csv(
-  file.path(data_dir, "crypt_signature_attributions.csv")
+  file.path(data_dir, "Main_Outputs","crypt_signature_attributions.csv")
 )
-crypt_metadata <- read.csv(file.path(data_dir, "biopsy_metadata.csv"))
+crypt_metadata <- read.csv(file.path(data_dir, "Main_Outputs","biopsy_metadata.csv"))
 
 # pruned per-branch SBS attributions
 paed_branch_attributions <- read.csv(
@@ -578,7 +576,7 @@ paed_branch_classification <- classify_branches(
   indeterminant_max_length  = 44
 )
 
-count(paed_branch_classification, branch_status)
+dplyr::count(paed_branch_classification, branch_status)
 ```
 
 ```{r paed-write-classification}
@@ -772,7 +770,7 @@ map_dfr(seq_len(length(age_bands) - 1), function(i) {
     filter(value > lower, value < upper,
            timepoint %in% c("age_continuation", "age_cessation")) %>%
     distinct(patient, value, .keep_all = TRUE) %>%
-    count(timepoint, name = "n") %>%
+    dplyr::count(timepoint, name = "n") %>%
     mutate(
       age_band = sprintf("%g-%g years", lower, upper),
       prop     = n / sum(n),
@@ -844,7 +842,7 @@ The same pipeline, with four differences from Run 1:
 
 ```{r lee-six-load}
 lee_six_nature_2019 <- read.csv(
-  file.path(data_dir, "lee_six_nature_2019_sbs_id_attribution.csv")
+  file.path(data_dir, "Lee_Six_Nature_2019","lee_six_nature_2019_sbs_id_attribution.csv")
 )
 
 lee_six_crypt_patient_map <- lee_six_nature_2019 %>%

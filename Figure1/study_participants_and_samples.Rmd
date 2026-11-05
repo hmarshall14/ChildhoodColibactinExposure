@@ -33,8 +33,8 @@ library(circlize)
 ### Input data
 
 ```{r load-data}
-crypt_metadata <- read.csv("../Data/biopsy_metadata.csv")
-crypt_signature_attributions <- read.csv("../Data/crypt_signature_attributions.csv")
+crypt_metadata <- read.csv("../Data/Main_Outputs/biopsy_metadata.csv")
+crypt_signature_attributions <- read.csv("../Data/Main_Outputs/crypt_signature_attributions.csv")
 ```
 
 `biopsy_metadata.csv` holds one row per crypt with the associated biopsy,

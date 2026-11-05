@@ -17,8 +17,8 @@ library(readxl)
 ```
 
 ```{r}
-crypt_signature_attributions<-read.csv('../Data/crypt_signature_attributions.csv')
-crypt_metadata<-read.csv('../Data/biopsy_metadata.csv')
+crypt_signature_attributions<-read.csv('../Data/Main_Outputs/crypt_signature_attributions.csv')
+crypt_metadata<-read.csv('../Data/Main_Outputs/biopsy_metadata.csv')
 ```
 
 ## a : read in the data from MUTYH and DNA Polymerase studies :
@@ -45,6 +45,20 @@ inherited_summary_rates<-inherited_predisposition%>%
   group_by(individual)%>%
   mutate(IDtotal=as.numeric(IDtotal),SBStotal=as.numeric(SBStotal))%>%
   summarise(SBSmean=mean(SBStotal,na.rm=T),IDmean=mean(IDtotal,na.rm=T),age=min(age),germline_mutation=first(germline_mutation))
+
+rates_theme <- theme_classic() +
+  theme(
+    axis.text        = element_text(size = 22, vjust = 0.5, hjust = 0.5),
+    axis.title       = element_text(size = 28, face = "bold"),
+    strip.background = element_blank(),
+    strip.placement  = "outside",
+    strip.text       = element_text(size = 28, face = "bold"),
+    panel.spacing.x  = unit(0.9, "cm"),
+    panel.spacing.y  = unit(0, "cm"),
+    legend.position  = "bottom",
+    legend.title     = element_text(size = 20, face = "bold"),
+    legend.text      = element_text(size = 16, face = "bold")
+  )
 ```
 
 ## b : create summary for per biopsy of children
@@ -188,11 +202,10 @@ mutyh_id_ribbons <- mutyh_id_rates %>%
   dplyr::mutate(y = slope * age + intercept, y_min = slope_low_ci * age + intercept, y_max = slope_upp_ci * age + intercept)
 
 ## plot for ID rates :
-png('../Supplementary_Figures/id_inherited_predisp_plots.png',width=1200,height=800,res=100)
-ggplot(data=normative_cases_sum[normative_cases_sum$cohort=='colibactin_positive',],aes(x=age,y=IDtotal_median,col=cohort))+
+id_plot<-ggplot(data=normative_cases_sum[normative_cases_sum$cohort=='colibactin_positive',],aes(x=age,y=IDtotal_median,col=cohort))+
   facet_wrap(~location)+
-  geom_abline(data=polymerase_id_rates,aes(slope=slope,intercept=0,linetype=germline_mutation),col='slateblue')+
-  geom_abline(data=mutyh_id_rates,aes(slope=slope,intercept=0,linetype=germline_mutation),col='chocolate4')+
+  geom_abline(data=polymerase_id_rates,aes(slope=slope,intercept=0,linetype=germline_mutation),linewidth=1,col='slateblue')+
+  geom_abline(data=mutyh_id_rates,aes(slope=slope,intercept=0,linetype=germline_mutation),linewidth=1,col='chocolate4')+
 
   #geom_abline(data=id_background_summary_plot,aes(slope=slope,intercept=0,linetype = "Background ID rate"),colour='grey30')+
   geom_errorbar(aes(ymin = IDtotal_lwr, ymax = IDtotal_upr),width = 0,colour = "grey60") +
@@ -201,14 +214,8 @@ ggplot(data=normative_cases_sum[normative_cases_sum$cohort=='colibactin_positive
   scale_alpha_discrete(range=c(0.2,0.2))+
   labs(x='Donor Age [years]',y='ID Mutation Burden',linetype='Inherited Germline\nMutation')+
   theme_classic() +
-  theme(
-    axis.title = element_text(size = 12, face = "bold"),
-    axis.text  = element_text(size = 10, face = "bold", colour = "grey20"),
-    legend.title=element_text(size = 12, face = "bold"),
-    strip.background=element_blank(),
-    strip.text = element_text(size = 12, face = "bold")
-  )
-dev.off()
+  rates_theme
+ggsave("../Supplementary_Figures/supplementary_figure_5_pole_mutyh_comparisons_id_plot.svg", id_plot, width = 12, height = 8)
 ```
 
 ```{r}
@@ -230,10 +237,9 @@ mutyh_sbs_ribbons <- mutyh_sbs_rates %>%
   dplyr::mutate(y = slope * age + intercept, y_min = slope_low_ci * age + intercept, y_max = slope_upp_ci * age + intercept)
 
 
-png('../Supplementary_Figures//sbs_inherited_predisp_plots.png',width=1200,height=800,res=100)
-ggplot(data=normative_cases_sum[normative_cases_sum$cohort=='colibactin_positive',],aes(x=age,y=SBStotal_median))+
-   geom_abline(data=polymerase_sbs_rates,aes(slope=slope,intercept=0,linetype=germline_mutation),col='slateblue')+
-    geom_abline(data=mutyh_sbs_rates,aes(slope=slope,intercept=0,linetype=germline_mutation),,col='chocolate4')+
+sbs_plot<-ggplot(data=normative_cases_sum[normative_cases_sum$cohort=='colibactin_positive',],aes(x=age,y=SBStotal_median))+
+   geom_abline(data=polymerase_sbs_rates,aes(slope=slope,intercept=0,linetype=germline_mutation),linewidth=1,col='slateblue')+
+    geom_abline(data=mutyh_sbs_rates,aes(slope=slope,intercept=0,linetype=germline_mutation),linewidth=1,col='chocolate4')+
   
   #geom_abline(data=sbs_background_summary_plot,aes(slope=slope,intercept=0,linetype = "Background SBS rate"),colour='grey30')+
   geom_errorbar(aes(ymin = SBStotal_lwr, ymax = SBStotal_upr),width = 0,colour = "grey60") +
@@ -245,12 +251,6 @@ ggplot(data=normative_cases_sum[normative_cases_sum$cohort=='colibactin_positive
   theme_classic()+
   labs(x='Donor Age at Biopsy [years]',y='SBS Mutation Burden',linetype='Inherited Germline\nMutation')+
   theme_classic() +
-  theme(
-    axis.title = element_text(size = 14, face = "bold"),
-    strip.background=element_blank(),
-    legend.title=element_text(size = 14, face = "bold"),
-    axis.text  = element_text(size = 10, face = "bold", colour = "grey20"),
-    strip.text = element_text(size = 14, face = "bold")
-  )
-dev.off()
+  rates_theme
+ggsave("../Supplementary_Figures/supplementary_figure_5_pole_mutyh_comparisons_sbs_plot.svg", sbs_plot, width = 12, height = 8)
 ```

@@ -1,38 +1,53 @@
+---
+title: "Supplementary Figure 10 — contamination and coverage in crypt metagenomes"
+output:
+  github_document:
+    toc: true
+    toc_depth: 2
+    html_preview: false
+---
 
-```{r}
-metaphlan_kraken_output_file<-'kraken_metaphlan_consensus_species.tsv'
-crypts_file <- '../Data/crypt_signature_attributions.csv'
+Produces three panels and nothing else:
+
+* `supp_fig10a_combined` — read depth vs mean relative abundance, by provenance
+* `supp_fig10b_combined` — per-sample gut vs non-biological / impossible-clade load
+* `supp_fig10c_combined` — per-sample gut coverage against the detection thresholds
+
+```{r knitr-opts, include=FALSE}
+knitr::opts_chunk$set(
+  collapse   = TRUE,
+  comment    = "#>",
+  message    = TRUE,   # the dropped-sample / missing-crypt notes belong in the record
+  warning    = TRUE,
+  dpi        = 150,
+  fig.width  = 18,
+  fig.height = 10,
+  fig.path   = "./"   # committed alongside the .md
+)
 ```
 
-```{r}
-library(dplyr)
-library(tidyverse)
+```{r setup, message=FALSE, warning=FALSE}
+library(tidyverse)   # dplyr, tidyr, ggplot2, forcats, readr
 library(scales)
-library(ggplot2)
 library(patchwork)
 ```
 
-```{r}
-## ---------------------------------------------------------------------------
-## 0. CONFIG
-## ---------------------------------------------------------------------------
+## 1. Config
 
-INPUT_FILE   <- metaphlan_kraken_output_file  # your table
-OUTDIR       <- "./"
-ANNOT_FILE   <- "./taxon_annotation.R"  # shared blacklist/allowlist module
-RANK         <- "s"      # "s" species, "g" genus, "t" SGB
-READ_LEN     <- 150      # mean read length (bp)
-PAIRED       <- TRUE     # TRUE if counts are read PAIRS
-MIN_READS_TAXON <- 10    # reads needed to call a taxon "detected" in a sample
-GUT_CATALOGUE <- NULL           # optional path to UHGG genomes-all_metadata.tsv
-BLANKS        <- character(0)   # column names of true negative controls, if any
-DB_N_DECOY  <- NA_real_   # reference entries in impossible clades
-DB_N_TARGET <- NA_real_   # reference entries everywhere else
-FDR_TARGET  <- 0.05       # report the abundance threshold achieving this FDR
-CRYPT_FILE  <- crypts_file
+```{r config}
+INPUT_FILE <- "kraken_metaphlan_consensus_species.tsv"
+CRYPT_FILE <- "../Data/Main_Outputs/crypt_signature_attributions.csv"
+ANNOT_FILE <- "./taxon_annotation.R"   # shared blacklist/allowlist module
+OUTDIR     <- "./"
 
-## Pragmatic convention only, for the pass/fail summary. Not a standard.
-MAX_IMPOSSIBLE_FRAC <- 0.05
+RANK            <- "s"    # "s" species, "g" genus, "t" SGB
+READ_LEN        <- 150    # mean read length (bp)
+PAIRED          <- TRUE   # TRUE if counts are read PAIRS
+MIN_READS_TAXON <- 10     # reads needed to call a taxon "detected" in a sample
+DEFAULT_GENOME  <- 4.0e6  # fallback genome size (bp)
+
+N_TOP          <- 20      # taxa shown in the fig 10a bar panel
+MAX_TAXA_SHOWN <- 5       # top bin of the fig 10c stacked bar ("5+")
 
 # Genome sizes (bp), keyed by species name or genus, for coverage maths.
 GENOME_SIZES <- c(
@@ -50,230 +65,132 @@ GENOME_SIZES <- c(
   Stutzerimonas = 4.7e6, Natronomonas = 2.8e6, Arthrobacter = 4.5e6,
   Elizabethkingia = 4.1e6, Paenibacillus = 6.0e6
 )
-DEFAULT_GENOME <- 4.0e6
 
-## ---------------------------------------------------------------------------
-## 1. SETUP
-## ---------------------------------------------------------------------------
-
-args <- commandArgs(trailingOnly = TRUE)
-if (length(args) >= 1) INPUT_FILE <- args[1]
-if (length(args) >= 2) OUTDIR     <- args[2]
-
-if (!file.exists(ANNOT_FILE))
-  stop("taxon_annotation.R not found at '", ANNOT_FILE, "'.")
-source(ANNOT_FILE)
-test_annotation()
-gut_cat <- if (!is.null(GUT_CATALOGUE)) load_gut_catalogue(GUT_CATALOGUE) else NULL
-
+stopifnot(file.exists(INPUT_FILE), file.exists(CRYPT_FILE), file.exists(ANNOT_FILE))
+source(ANNOT_FILE)                      # annotate_taxa(), score_evidence()
 dir.create(OUTDIR, showWarnings = FALSE, recursive = TRUE)
-wr <- function(x, f) utils::write.table(
-  x, file.path(OUTDIR, f), sep = "\t", quote = FALSE, row.names = FALSE)
+```
 
-verdict <- character(0)
-say <- function(...) { msg <- paste0(...); verdict <<- c(verdict, msg); cat(msg, "\n") }
+## 2. Load and build the count matrix
 
-## ---------------------------------------------------------------------------
-## 2. LOAD, PARSE, ANNOTATE
-## ---------------------------------------------------------------------------
+MetaPhlAn/Bracken lineage tables are nested — a phylum row already contains its
+genera — so exactly one rank is selected rather than all rows.
 
-raw <- utils::read.delim(INPUT_FILE, sep = "\t", header = TRUE,
-                         check.names = FALSE, comment.char = "#",
-                         stringsAsFactors = FALSE)
+```{r load}
+raw <- read.delim(INPUT_FILE, sep = "\t", header = TRUE, check.names = FALSE,
+                  comment.char = "#", stringsAsFactors = FALSE)
 names(raw)[1] <- "clade_name"
 
-# load in crypts
-crypts <- read.csv(CRYPT_FILE)%>%
-  pull(sample)
+# restrict to the crypt samples; this also drops non-sample columns such as
+# NCBI_tax_id, so no numeric-coercion filtering is needed afterwards
+crypt_samples <- unique(read.csv(CRYPT_FILE)$sample)
+missing_cols  <- setdiff(crypt_samples, names(raw))
+if (length(missing_cols))
+  warning(length(missing_cols), " crypt sample(s) absent from the profile table: ",
+          paste(head(missing_cols, 5), collapse = ", "))
 
-raw <- raw[,colnames(raw)%in%c('clade_name',crypts)]
+raw <- raw[, c("clade_name", intersect(crypt_samples, names(raw))), drop = FALSE]
+raw[-1] <- lapply(raw[-1], as.numeric)
 
-# drop non-sample columns (e.g. NCBI_tax_id, which is pipe-separated text)
-num_ok <- vapply(raw[-1], function(x)
-  is.numeric(x) || !any(is.na(suppressWarnings(as.numeric(x)))), logical(1))
-raw <- raw[, c(TRUE, num_ok), drop = FALSE]
-for (j in 2:ncol(raw)) raw[[j]] <- as.numeric(raw[[j]])
-
-# MetaPhlAn/Bracken lineage tables are NESTED: the phylum row already contains
-# its genera. Taking all rows double-counts. Select exactly one rank.
 last_tok  <- sub(".*\\|", "", raw$clade_name)
 rank_code <- sub("__.*", "", last_tok)
 taxon     <- sub("^[a-z]__", "", last_tok)
 
-is_total <- rank_code == "d" & !grepl("\\|", raw$clade_name)
-total_classified <- if (any(is_total)) colSums(raw[is_total, -1, drop = FALSE]) else NULL
-
-## --- how much signal exists at each rank? ---------------------------------
-rank_lbl <- c(d = "domain", p = "phylum", c = "class", o = "order",
-              f = "family", g = "genus", s = "species", t = "SGB")
-rank_rep <- do.call(rbind, lapply(names(rank_lbl), function(rk) {
-  sel <- rank_code == rk
-  if (!any(sel)) return(NULL)
-  m <- as.matrix(raw[sel, -1, drop = FALSE]); m[is.na(m)] <- 0
-  data.frame(rank = rank_lbl[[rk]], code = rk, n_rows = sum(sel),
-             total_reads = sum(m),
-             median_reads_per_sample = stats::median(colSums(m)),
-             stringsAsFactors = FALSE)
-}))
-if (!is.null(rank_rep)) { print(rank_rep); wr(rank_rep, "00_rank_availability.tsv") }
-
 keep <- rank_code == RANK
-if (!any(keep)) stop("No rows at rank '", RANK, "'. Present: ",
-                     paste(unique(rank_code), collapse = ", "))
+if (!any(keep))
+  stop("No rows at rank '", RANK, "'. Present: ",
+       paste(unique(rank_code), collapse = ", "))
 
 mat <- as.matrix(raw[keep, -1, drop = FALSE])
-rownames(mat) <- taxon[keep]
-lineage_all <- raw$clade_name[keep]
+rownames(mat)  <- taxon[keep]
+lineage        <- raw$clade_name[keep]
 mat[is.na(mat)] <- 0
 mat <- round(mat)
-nz  <- rowSums(mat) > 0
-mat <- mat[nz, , drop = FALSE]; lineage_all <- lineage_all[nz]
+
+nz      <- rowSums(mat) > 0
+mat     <- mat[nz, , drop = FALSE]
+lineage <- lineage[nz]
 
 empty <- colSums(mat) == 0
 if (any(empty)) {
   message("Dropping ", sum(empty), " sample(s) with 0 classified reads.")
-  if (!is.null(total_classified)) total_classified <- total_classified[!empty]
   mat <- mat[, !empty, drop = FALSE]
 }
 
-samples  <- colnames(mat)
-n_sample <- length(samples)
-libsize  <- colSums(mat)
-if (is.null(total_classified)) total_classified <- libsize
+samples <- colnames(mat)
+libsize <- colSums(mat)
+relab   <- sweep(mat, 2, pmax(libsize, 1), "/")
 
-cat(sprintf("\nLoaded %d taxa at rank '%s' across %d samples.\n\n",
-            nrow(mat), RANK, n_sample))
+cat(sprintf("Loaded %d taxa at rank '%s' across %d samples.\n",
+            nrow(mat), RANK, length(samples)))
 
 ann <- annotate_taxa(rownames(mat),
                      rank = if (RANK %in% c("s", "t")) "s" else "g",
-                     gut_catalogue = gut_cat, lineage = lineage_all)
+                     gut_catalogue = NULL, lineage = lineage)
 stopifnot(identical(ann$taxon, rownames(mat)))
-annotation_report(ann, mat)
+```
 
-## ---------------------------------------------------------------------------
-## 3. PER-SAMPLE DEPTH
-## ---------------------------------------------------------------------------
+## 3. Thresholds and genome-equivalent coverage
 
-depth <- data.frame(
-  sample              = samples,
-  classified_reads    = as.integer(libsize),
-  total_all_ranks     = as.integer(total_classified[samples]),
-  n_taxa_detected     = colSums(mat >= MIN_READS_TAXON),
-  top_taxon           = rownames(mat)[apply(mat, 2, which.max)],
-  top_taxon_frac      = round(apply(mat, 2, max) / pmax(libsize, 1), 3),
-  min_detectable_relab = signif(MIN_READS_TAXON / pmax(libsize, 1), 3),
-  stringsAsFactors    = FALSE
-)
-depth <- depth[order(depth$classified_reads), ]
-wr(depth, "01_depth_per_sample.tsv")
+Three per-taxon, per-sample thresholds. They are never comparable to a sample's
+total read count summed over taxa.
 
-say("=== DEPTH ===")
-say(sprintf("Classified reads/sample: median %s, range %s - %s",
-            format(median(libsize), big.mark = ","),
-            format(min(libsize), big.mark = ","),
-            format(max(libsize), big.mark = ",")))
-say(sprintf("At median depth nothing below ~%.2g relative abundance is visible.",
-            MIN_READS_TAXON / median(libsize)))
+* **`T_DETECT`** — presence/absence only. A few reads says "seen", nothing more.
+* **`T_BREADTH`** — coverage at which a call can be *verified* by checking that
+  reads spread across the genome rather than piling onto conserved or repetitive
+  regions. Below it, a real low-abundance organism and a misassignment artefact
+  look identical.
+* **`T_QUANT`** — reads needed to *compare* abundance between samples. Counts
+  carry Poisson shot noise, so `SE(log ratio) = sqrt(1/k1 + 1/k2)` and resolving
+  a fold-change `F` at power `1-beta` needs
+  `k >= 2 * ((z_{1-alpha/2} + z_{1-beta}) / log(F))^2`. This is a floor: it
+  assumes pure Poisson sampling, whereas real microbiome counts are
+  overdispersed. A taxon below `T_QUANT` cannot support an abundance comparison
+  at *any* sample size, because the limit is per-sample shot noise, not n.
 
-## ---------------------------------------------------------------------------
-## 4. GENOME-EQUIVALENT COVERAGE AND THE THREE THRESHOLDS
-##
-##  T_DETECT   presence/absence only. A few reads says "seen", nothing more.
-##
-##  T_BREADTH  coverage at which a call can be VERIFIED by checking reads
-##             spread across the genome rather than piling onto conserved or
-##             repetitive regions. Below it, a real low-abundance organism and
-##             a misassignment artefact look identical.
-##
-##  T_QUANT    reads needed to COMPARE abundance between samples. Counts carry
-##             Poisson shot noise, so log(k) has SE ~ 1/sqrt(k) and
-##             SE(log ratio) = sqrt(1/k1 + 1/k2). To resolve a fold-change F at
-##             power (1-beta), two-sided alpha:
-##
-##                k >= 2 * ((z_{1-alpha/2} + z_{1-beta}) / log(F))^2
-##
-##             ~33 reads for 2-fold, ~96 for 1.5-fold, ~315 for 1.25-fold.
-##             This is a FLOOR: it assumes pure Poisson sampling with no
-##             overdispersion, whereas real microbiome counts have
-##             Var = mu + phi*mu^2 with phi ~ 0.5-2. Crucially, a taxon below
-##             T_QUANT cannot support an abundance comparison at ANY sample
-##             size, because the limit is per-sample shot noise, not n.
-## ---------------------------------------------------------------------------
+`T_USABLE` requires both: breadth (to believe the call) and shot-noise headroom
+(to resolve the effect). Breadth is by far the more demanding of the two.
 
+```{r thresholds}
+bases_per_read <- READ_LEN * (if (PAIRED) 2 else 1)
+cov_of <- function(reads) reads * bases_per_read / DEFAULT_GENOME
+
+reads_for_fold <- function(fold, alpha = 0.05, power = 0.80) {
+  z <- qnorm(1 - alpha / 2) + qnorm(power)
+  ceiling(2 * (z / log(fold))^2)
+}
+
+T_DETECT        <- MIN_READS_TAXON
+T_BREADTH_X     <- 0.05                                           # coverage, in X
+T_BREADTH_READS <- ceiling(T_BREADTH_X * DEFAULT_GENOME / bases_per_read)
+T_QUANT_2X      <- reads_for_fold(2.0)
+T_COVERAGE     <- max(T_BREADTH_READS, T_QUANT_2X)
+
+# taxa x samples, in X
 gsize <- unname(GENOME_SIZES[ann$name])
 alt   <- unname(GENOME_SIZES[ann$genus])
 gsize[is.na(gsize)] <- alt[is.na(gsize)]
 gsize[is.na(gsize)] <- DEFAULT_GENOME
-bases_per_read <- READ_LEN * (if (PAIRED) 2 else 1)
+cov_mat <- sweep(mat * bases_per_read, 1, gsize, "/")
 
-cov_mat <- sweep(mat * bases_per_read, 1, gsize, "/")   # taxa x samples, in X
-max_cov_overall <- max(cov_mat)
+c(detect = T_DETECT, quant_2x = T_QUANT_2X,
+  breadth = T_BREADTH_READS, coverage = T_COVERAGE)
+```
 
-reads_for_fold <- function(fold, alpha = 0.05, power = 0.80) {
-  z <- stats::qnorm(1 - alpha / 2) + stats::qnorm(power)
-  ceiling(2 * (z / log(fold))^2)
-}
-T_DETECT    <- MIN_READS_TAXON
-T_BREADTH_X <- 0.05
-T_QUANT_2X  <- reads_for_fold(2.0)
-T_QUANT_15X <- reads_for_fold(1.5)
+## 4. Provenance labels
 
-## ALL of these are PER TAXON PER SAMPLE. They are never comparable to a
-## sample's total read count summed over taxa -- that comparison is the single
-## easiest way to conclude the data are adequate when they are not.
+One label per taxon, shared by all three figures so the colour scale matches.
+Levels are mutually exclusive and exhaustive, so they sum to the library size and
+can be stacked directly.
 
-# reads equivalent of the breadth threshold, for a typical genome
-T_BREADTH_READS <- ceiling(T_BREADTH_X * DEFAULT_GENOME / bases_per_read)
+`impossible_clade` is split out from `contaminant` deliberately. Both are
+non-biological, but a blacklist call can be argued with on grounds of list
+curation, whereas a halophilic archaeon in a colonic crypt cannot.
 
-# The binding constraint. To use a taxon in a between-sample abundance
-# comparison you need BOTH: enough coverage to verify the call is real
-# (breadth), and enough reads to resolve the effect size (shot noise).
-# Note breadth is by far the more demanding of the two -- confirming an
-# organism is present is harder than quantifying it once you believe it.
-T_USABLE_2X  <- max(T_BREADTH_READS, T_QUANT_2X)
-T_USABLE_15X <- max(T_BREADTH_READS, T_QUANT_15X)
+```{r provenance}
+PROV_LEVELS <- c("contaminant", "impossible_clade", "gut", "oral",
+                 "unclassified", "unnamed_sgb")
 
-thresholds <- data.frame(
-  threshold = c("T_DETECT", "T_QUANT_2fold", "T_QUANT_1.5fold", "T_BREADTH",
-                "T_USABLE_2fold", "T_USABLE_1.5fold"),
-  scope = "per taxon, per sample",
-  basis = c("presence/absence only",
-            "Poisson floor to resolve 2-fold difference, 80% power",
-            "Poisson floor to resolve 1.5-fold difference, 80% power",
-            "coverage at which breadth of genome covered can be checked",
-            "breadth AND 2-fold resolution -- the binding constraint",
-            "breadth AND 1.5-fold resolution -- the binding constraint"),
-  reads_required = c(T_DETECT, T_QUANT_2X, T_QUANT_15X, T_BREADTH_READS,
-                     T_USABLE_2X, T_USABLE_15X),
-  stringsAsFactors = FALSE
-)
-thresholds$coverage_X_required <-
-  signif(thresholds$reads_required * bases_per_read / DEFAULT_GENOME, 3)
-
-## ---------------------------------------------------------------------------
-## 5. TAXON ANNOTATION + EVIDENCE  (FIGURE 1 data)
-## ---------------------------------------------------------------------------
-
-relab <- sweep(mat, 2, pmax(libsize, 1), "/")
-
-contam <- score_evidence(
-  ann, mat,
-  blanks = if (length(BLANKS)) intersect(BLANKS, samples) else NULL,
-  read_len = READ_LEN, paired = PAIRED, genome_sizes = GENOME_SIZES,
-  min_reads = MIN_READS_TAXON, default_genome = DEFAULT_GENOME
-)
-contam$total_reads <- rowSums(mat)
-contam$mean_relab  <- signif(rowMeans(relab), 3)
-
-# One provenance label per taxon, shared by all three figures so the colour
-# scale matches. Levels are MUTUALLY EXCLUSIVE and exhaustive, so they sum to
-# the library size and can be stacked directly.
-#
-# "impossible_clade" is split out from "contaminant" deliberately. Both are
-# non-biological, but they carry different evidential weight: a blacklist call
-# can be argued with on grounds of list curation, whereas a halophilic
-# archaeon in a colonic crypt cannot. Keeping them separate lets a figure show
-# the conservative number and the unarguable one side by side.
 prov <- rep("unclassified", nrow(mat))
 prov[ann$allowlist_status == "unnamed_sgb"]   <- "unnamed_sgb"
 prov[ann$allowlist_status == "oral"]          <- "oral"
@@ -281,334 +198,238 @@ prov[ann$allowlist_status == "gut"]           <- "gut"
 prov[ann$allowlist_status == "environmental"] <- "contaminant"
 prov[ann$blacklist_status == "contaminant"]   <- "contaminant"
 prov[ann$env_clade]                           <- "impossible_clade"  # overrides
-PROV_LEVELS <- c("contaminant", "impossible_clade", "gut", "oral",
-                 "unclassified", "unnamed_sgb")
 prov <- factor(prov, levels = PROV_LEVELS)
 
-contam$provenance <- prov[match(contam$taxon, rownames(mat))]
-contam <- contam[order(-contam$total_reads), ]
+PROV_COL <- c(contaminant  = "firebrick",   impossible_clade = "grey60",
+              gut          = "darkslateblue", oral           = "goldenrod",
+              unclassified = "grey60",      unnamed_sgb      = "grey80")
 
-frac_impossible   <- sum(mat[prov == "impossible_clade", , drop = FALSE]) / sum(mat)
-frac_blacklisted  <- sum(mat[prov == "contaminant", , drop = FALSE]) / sum(mat)
-# combined non-biological load -- this is the headline "% contaminant" figure
-frac_contam_reads <- frac_blacklisted + frac_impossible
-frac_gut_reads    <- sum(mat[prov == "gut", , drop = FALSE]) / sum(mat)
-frac_env_clade    <- frac_impossible
+PROV_LAB <- c(contaminant  = "Contaminant", impossible_clade = "Impossible clade",
+              gut          = "Gut bacteria", oral            = "Oral bacteria",
+              unclassified = "Unclassified", unnamed_sgb     = "Unnamed SGB")
+```
 
-## --- internal false-positive control --------------------------------------
-## Reads assigned to clades that cannot occur in a human colon (halophilic
-## archaea, soil Acidobacteria, Cyanobacteria). Their true abundance is zero,
-## so every such read is a classifier error or a contaminant. This is the
-## closest thing to a built-in negative control a taxonomic profile offers,
-## and it bounds how much of the rest of the table to believe. It is also a
-## stronger argument than the blacklist, because it cannot be disputed on
-## grounds of list curation.
-worst <- head(order(-rowSums(mat) * ann$env_clade), 20)
-## --- decoy-based FDR: what abundance must a taxon exceed to be believed? ---
-## Impossible clades are decoys. For a per-taxon abundance threshold x:
-##   D(x) = decoy taxa above x
-##   T(x) = target taxa above x
-##   expected false targets above x = D(x) * (N_target_DB / N_decoy_DB)
-##   FDR(x) = expected false targets / T(x)
-## The threshold at which FDR falls below FDR_TARGET is a DERIVED detection
-## limit, calibrated on your own data, rather than a convention.
-decoy_v  <- prov == "impossible_clade"
-taxon_ab <- rowMeans(relab)                     # mean relative abundance
+## 5. Figure data
 
-if (is.na(DB_N_DECOY) || is.na(DB_N_TARGET)) {
-  db_scale <- sum(!decoy_v) / max(sum(decoy_v), 1)
+```{r figure-data}
+## --- 10a: one row per taxon ---------------------------------------------
+contam <- score_evidence(
+  ann, mat, blanks = NULL,
+  read_len = READ_LEN, paired = PAIRED, genome_sizes = GENOME_SIZES,
+  min_reads = MIN_READS_TAXON, default_genome = DEFAULT_GENOME
+)
+i <- match(contam$taxon, rownames(mat))
+stopifnot(!anyNA(i))
+contam$total_reads <- rowSums(mat)[i]
+contam$mean_relab  <- rowMeans(relab)[i]
+contam$provenance  <- prov[i]
 
-} else {
-}
-
-grid <- sort(unique(c(0, stats::quantile(taxon_ab[taxon_ab > 0],
-                                         probs = seq(0, 1, 0.01), na.rm = TRUE))))
-fdr_tab <- do.call(rbind, lapply(grid, function(x) {
-  D <- sum(taxon_ab >= x & decoy_v)
-  T_ <- sum(taxon_ab >= x & !decoy_v)
-  data.frame(relab_threshold = signif(x, 3),
-             reads_at_median_depth = ceiling(x * stats::median(libsize)),
-             n_decoy_taxa = D, n_target_taxa = T_,
-             est_false_targets = round(D * db_scale, 1),
-             FDR = if (T_ > 0) signif(min(1, D * db_scale / T_), 3) else NA_real_,
-             stringsAsFactors = FALSE)
-}))
-
-ok_idx <- which(!is.na(fdr_tab$FDR) & fdr_tab$FDR <= FDR_TARGET)
-say("")
-say("=== DECOY-BASED DETECTION THRESHOLD ===")
-say(sprintf("Decoy scaling factor (target:decoy in database) = %.1f", db_scale))
-if (length(ok_idx)) {
-  r <- fdr_tab[min(ok_idx), ]
-  say(sprintf("FDR falls below %.0f%% only above mean relative abundance %.3g",
-              100 * FDR_TARGET, r$relab_threshold))
-  say(sprintf("  = ~%s reads at median library size; %d taxa clear it.",
-              format(r$reads_at_median_depth, big.mark = ","), r$n_target_taxa))
-  say("  Anything below this cannot be distinguished from misassignment noise.")
-} else {
-  say(sprintf("FDR NEVER falls below %.0f%% at any abundance threshold.",
-              100 * FDR_TARGET))
-  say("  -> Decoy taxa are as abundant as real ones. No taxon in this table")
-  say("     can be separated from misassignment noise on abundance alone.")
-}
-
-## --- possible blanks among your columns -----------------------------------
-blank_like <- grepl("blank|ntc|neg|ctrl|control|water|h2o|empty", samples, ignore.case = TRUE)
-cand <- data.frame(sample = samples, classified_reads = as.integer(libsize),
-                   name_looks_like_blank = blank_like,
-                   in_lowest_5pct_depth = libsize <= quantile(libsize, 0.05),
-                   stringsAsFactors = FALSE)
-cand <- cand[cand$name_looks_like_blank | cand$in_lowest_5pct_depth, ]
-
-## ---------------------------------------------------------------------------
-## 6. FIGURE 2 data: per-sample composition
-##    Shows contamination is systemic, not a few bad libraries. The MINIMUM
-##    contaminant fraction across samples is the number that makes the point.
-## ---------------------------------------------------------------------------
-
+## --- 10b: one row per sample, composition by provenance ------------------
 fig2 <- data.frame(sample = samples, total_reads = as.integer(libsize),
                    stringsAsFactors = FALSE)
-for (p in PROV_LEVELS) {
-  r <- colSums(mat[prov == p, , drop = FALSE])
-  fig2[[paste0("reads_", p)]] <- as.integer(r)
-  fig2[[paste0("relab_", p)]] <- round(r / pmax(libsize, 1), 5)
-}
-# combined non-biological load: blacklisted contaminants PLUS impossible
-# clades. Use this for the figure 2 scatter against relab_gut; the two
-# components remain available separately for a stacked bar.
-fig2$reads_nonbiological <- fig2$reads_contaminant + fig2$reads_impossible_clade
-fig2$relab_nonbiological <- round(fig2$relab_contaminant + fig2$relab_impossible_clade, 5)
+for (p in PROV_LEVELS)
+  fig2[[paste0("relab_", p)]] <-
+    colSums(mat[prov == p, , drop = FALSE]) / pmax(libsize, 1)
 
-fig2$n_taxa_gut_detected        <- colSums(mat[prov == "gut", , drop = FALSE] >= T_DETECT)
-fig2$n_taxa_impossible_detected <- colSums(mat[prov == "impossible_clade", , drop = FALSE] >= T_DETECT)
-fig2$top_taxon       <- rownames(mat)[apply(mat, 2, which.max)]
-fig2$top_taxon_prov  <- as.character(prov[apply(mat, 2, which.max)])
-fig2$top_taxon_relab <- round(apply(mat, 2, max) / pmax(libsize, 1), 4)
-fig2 <- fig2[order(-fig2$relab_nonbiological), ]
-wr(fig2, "fig2_sample_composition_wide.tsv")
+# combined non-biological load: blacklisted contaminants PLUS impossible clades
+fig2$relab_nonbiological <- fig2$relab_contaminant + fig2$relab_impossible_clade
 
-fig2_long <- do.call(rbind, lapply(PROV_LEVELS, function(p) {
-  r <- colSums(mat[prov == p, , drop = FALSE])
-  data.frame(sample = samples, provenance = p, reads = as.integer(r),
-             relab = round(r / pmax(libsize, 1), 5), stringsAsFactors = FALSE)
-}))
-wr(fig2_long, "fig2_sample_composition_long.tsv")
-
-say("")
-say("=== FIGURE 2: is contamination systemic? ===")
-say(sprintf("Non-biological relative abundance per sample: median %.1f%%, IQR %.1f-%.1f%%, MIN %.1f%%",
-            100 * median(fig2$relab_nonbiological),
-            100 * quantile(fig2$relab_nonbiological, 0.25),
-            100 * quantile(fig2$relab_nonbiological, 0.75),
-            100 * min(fig2$relab_nonbiological)))
-say(sprintf("%d/%d samples (%.0f%%) are >50%% non-biological; %d (%.0f%%) are >90%%.",
-            sum(fig2$relab_nonbiological > 0.5), nrow(fig2),
-            100 * mean(fig2$relab_nonbiological > 0.5),
-            sum(fig2$relab_nonbiological > 0.9),
-            100 * mean(fig2$relab_nonbiological > 0.9)))
-say(sprintf("Impossible-clade fraction alone: median %.1f%%, MIN %.1f%%, present in %d/%d samples.",
-            100 * median(fig2$relab_impossible_clade),
-            100 * min(fig2$relab_impossible_clade),
-            sum(fig2$reads_impossible_clade > 0), nrow(fig2)))
-say("  -> A high MINIMUM across samples means this is a property of the")
-say("     protocol (low input + 10-12 PCR cycles), not of outlier libraries.")
-say("  -> The impossible-clade column is the unarguable version of the same")
-say("     point: those reads have a true abundance of zero in every sample.")
-
-## ---------------------------------------------------------------------------
-## 7. FIGURE 3 data: per-sample gut coverage against the thresholds
-## ---------------------------------------------------------------------------
-
-gut_i <- which(prov == "gut")
-gmat <- mat[gut_i, , drop = FALSE]
-gcov <- cov_mat[gut_i, , drop = FALSE]
-pos  <- function(x) if (any(x > 0)) x[x > 0] else NA_real_
+## --- 10c: one row per sample, gut coverage vs thresholds -----------------
+gmat <- mat[prov == "gut", , drop = FALSE]
+gcov <- cov_mat[prov == "gut", , drop = FALSE]
 
 fig3 <- data.frame(
-  sample      = samples,
-  total_reads = as.integer(libsize),
-  gut_reads   = as.integer(colSums(gmat)),
-  gut_relab   = round(colSums(gmat) / pmax(libsize, 1), 5),
-  # summed genome equivalents: an upper bound on gut-derived DNA present
-  gut_genome_equivalents = signif(colSums(gcov), 3),
-  # the honest per-organism number -- summing across taxa overstates what
-  # you can actually do with any single one of them
-  max_gut_coverage_X    = signif(apply(gcov, 2, max), 3),
-  median_gut_coverage_X = signif(apply(gcov, 2, function(x) stats::median(pos(x))), 3),
-  # counts of INDIVIDUAL gut taxa clearing each per-taxon bar in this sample.
-  # These, not the sample's total gut reads, are what determine whether an
-  # abundance comparison is possible.
-  n_gut_detected           = colSums(gmat >= T_DETECT),
-  n_gut_quantifiable_2x    = colSums(gmat >= T_QUANT_2X),
-  n_gut_quantifiable_15x   = colSums(gmat >= T_QUANT_15X),
-  n_gut_breadth_verifiable = colSums(gcov >= T_BREADTH_X),
-  # both conditions at once -- the number that actually matters
-  n_gut_usable_2x          = colSums(gmat >= T_USABLE_2X),
-  n_gut_usable_15x         = colSums(gmat >= T_USABLE_15X),
+  sample    = samples,
+  gut_reads = as.integer(colSums(gmat)),
+  # the honest per-organism number: summing coverage across taxa overstates
+  # what can be done with any single one of them
+  max_gut_coverage_X = apply(gcov, 2, max),
+  # counts of INDIVIDUAL gut taxa clearing each per-taxon bar in this sample
+  n_gut_detected        = colSums(gmat >= T_DETECT),
+  n_gut_coverage       = colSums(gmat >= T_USABLE_2X),
   stringsAsFactors = FALSE
 )
-fig3 <- fig3[order(-fig3$gut_reads), ]
-  
-
-
 ```
 
+```{r theme}
+fig_theme <- theme_classic() +
+  theme(axis.title   = element_text(size = 20, face = "bold"),
+        axis.text    = element_text(size = 16, face = "bold"),
+        legend.title = element_text(size = 20, face = "bold"),
+        legend.text  = element_text(size = 16, face = "bold"))
+```
 
-plot figure 1 : relative reads verus relative abundance
-```{r}
-pcol <- c(contaminant = "firebrick", gut = "darkslateblue", oral = "goldenrod",
-          unclassified = "grey60", unnamed_sgb = "grey80")
+## 6. Supplementary Figure 10a
 
-fig1_scatter<-ggplot(data=contam, aes(x=total_reads,y=mean_relab,col=provenance))+
-  geom_point()+
-  
-  scale_color_manual(values=pcol,
-                    breaks=c('contaminant','gut','oral','unclassified','unnamed_sgb'),
-                     labels=c('Contaminant','Oral Bacteria','Gut Bacteria',
-                               'Unclassified','Unnamed_SGB'))+
+```{r fig10a}
+fig10a_scatter <- ggplot(contam, aes(total_reads, mean_relab, colour = provenance)) +
+  geom_point() +
+  scale_colour_manual(values = PROV_COL, labels = PROV_LAB, drop = FALSE) +
   scale_x_log10() +
-  scale_y_log10()+
-  theme_classic()+
-  labs(x='Total read across samples',y='Mean relative abundance across samples',
-       col='Species Classification')+
-  theme(axis.title = element_text(size=20,face='bold'),
-        axis.text = element_text(size=16,face='bold'),
-        legend.position='bottom',
-        legend.title = element_text(size=20,face='bold'),
-        legend.text = element_text(size=16,face='bold')
-        )
+  scale_y_log10() +
+  labs(x = "Total reads across samples",
+       y = "Mean relative abundance across samples",
+       colour = "Species classification") +
+  fig_theme +
+  theme(legend.position = "bottom")
 
-top10_rel_ab<-contam%>%arrange(desc(mean_relab))%>%head(20)
-fig1_bar<-ggplot(data=top10_rel_ab, aes(x=mean_relab,y=fct_reorder(species,mean_relab),fill=provenance))+
-  geom_bar(stat='identity')+
-  scale_fill_manual(values=pcol,
-                    breaks=c('contaminant','gut','oral','unclassified','unnamed_sgb'),
-                     labels=c('Contaminant','Oral Bacteria','Gut Bacteria',
-                               'Unclassified','Unnamed_SGB'))+
-  labs(y='',fill='',x='Mean relative abundance\nacross samples')+
-  scale_x_continuous(labels=label_percent())+
-  theme_classic()+
-  theme(axis.title = element_text(size=20,face='bold'),
-        axis.text = element_text(size=16,face='bold'),
-        legend.position='none',
-        legend.title = element_text(size=20,face='bold'),
-        legend.text = element_text(size=16,face='bold')
-        )
+fig10a_bar <- contam %>%
+  slice_max(mean_relab, n = N_TOP) %>%
+  ggplot(aes(mean_relab, fct_reorder(species, mean_relab), fill = provenance)) +
+  geom_col() +
+  scale_fill_manual(values = PROV_COL, labels = PROV_LAB, drop = FALSE) +
+  scale_x_continuous(labels = label_percent()) +
+  labs(x = "Mean relative abundance\nacross samples", y = NULL, fill = NULL) +
+  fig_theme +
+  theme(legend.position = "none")
 
+supp_fig10a_combined <- fig10a_scatter + fig10a_bar + plot_layout(widths = c(3, 1))
 
-supp_fig10a_combined<-fig1_scatter+fig1_bar+plot_layout(widths = c(3, 1))
-ggsave('./supp_fig10a_mean_read_abundance_all_bacteria.png',supp_fig10a_combined,width=18,height=10,dpi=200)
+ggsave(file.path(OUTDIR, "supp_fig10a_mean_read_abundance_all_bacteria.png"),
+       supp_fig10a_combined, width = 18, height = 10, dpi = 200)
+
+supp_fig10a_combined
+```
+```{r}
+contam %>%
+  slice_max(mean_relab, n = 3) %>%
+  dplyr::select(name,mean_relab)
+contam %>%
+  slice_max(mean_relab, n = 3) %>%
+  dplyr::select(name,mean_relab)%>%
+  #mutate(mean_relab=percent(mean_relab))%>%
+  summarise(sum=percent(sum(mean_relab)))
+```
+```{r}
+pct_contam<-contam %>%
+  filter(provenance%in%c('impossible_clade','contaminant'))%>%
+  summarise(sum=percent(sum(mean_relab)))
+print(paste0('Percent contaminant ',pct_contam))
+```
+```{r}
+pct_gut<-contam %>%
+  filter(provenance%in%c('gut'))%>%
+  summarise(sum=percent(sum(mean_relab)))
+print(paste0('Percent gut taxa ',pct_gut))
 ```
 
-plot figure 2 : relative reads verus relative abundance
-```{r}
-prop_nonbiological_enriched=round(nrow(fig2[fig2$relab_nonbiological>0.5,])/nrow(fig2),2)*100
+## 7. Supplementary Figure 10b
 
-contaminant_gut_relab_plt<-ggplot(data=fig2,aes(x=relab_gut,y=relab_nonbiological ,col='grey30'))+
-  geom_point(col='grey30')+
-  scale_x_continuous(limits=c(0,1))+
-  scale_y_continuous(limits=c(0,1))+
-  labs(x="Combined relative abundance of gut taxa per sample",
-       y="Combined relative abundance of contaminant taxa per sample")+
-  geom_hline(yintercept=0.5,linewidth=1,linetype=5,col='grey30')+
-  geom_text(label=paste0('Contaminant taxa > 50% of reads\n[',prop_nonbiological_enriched,'% of samples]'), ,x=Inf,hjust=1,vjust=0.50,y=0.5,
-            col='black',size=6,col='black')+
-  theme_classic()+
-  theme(axis.title = element_text(size=20,face='bold'),
-        axis.text = element_text(size=16,face='bold'),
-        legend.position='none',
-        legend.title = element_text(size=20,face='bold'),
-        legend.text = element_text(size=16,face='bold')
-        )
+A high *minimum* contaminant fraction across samples means this is a property of
+the protocol (low input, 10–12 PCR cycles), not of a few outlier libraries. The
+impossible-clade panel is the unarguable version of the same point: those reads
+have a true abundance of zero in every sample.
 
-impossible_gut_relab_plt<-ggplot(data=fig2,aes(x=relab_gut,y=relab_impossible_clade,col='grey30'))+
-  geom_point(col='grey30')+
-  scale_x_continuous(limits=c(0,1))+
-  scale_y_continuous(limits=c(0,1))+
-  labs(x='Combined relative abundance of gut taxa per sample',
-       y="Combined relative abundance of 'impossible taxa' per sample")+
-  theme_classic()+
-  theme(axis.title = element_text(size=20,face='bold'),
-        axis.text = element_text(size=16,face='bold'),
-        legend.position='none',
-        legend.title = element_text(size=20,face='bold'),
-        legend.text = element_text(size=16,face='bold')
-        )
+```{r fig10b}
+pct_nonbio_over_half <- round(100 * mean(fig2$relab_nonbiological > 0.5))
 
-supp_fig10b_combined=contaminant_gut_relab_plt|impossible_gut_relab_plt
-ggsave('./supp_fig10b_relab_nonbio_impossible.png',supp_fig10b_combined,width=18,height=10,dpi=200)
-```
+fig10b_contaminant <- ggplot(fig2, aes(relab_gut, relab_nonbiological)) +
+  geom_point(colour = "grey30") +
+  geom_hline(yintercept = 0.5, linewidth = 1, linetype = 5, colour = "grey30") +
+  annotate("text", x = Inf, y = 0.5, hjust = 1.02, vjust = -0.5,
+           size = 6, colour = "black",
+           label = sprintf("Contaminant taxa > 50%% of reads\n[%d%% of samples]",
+                           pct_nonbio_over_half)) +
+  scale_x_continuous(limits = c(0, 1)) +
+  scale_y_continuous(limits = c(0, 1)) +
+  labs(x = "Combined relative abundance of gut taxa per sample",
+       y = "Combined relative abundance of contaminant taxa per sample") +
+  fig_theme
 
-```{r}
-#summary statistics
-print(median(fig2$relab_nonbiological))
-print(paste0('IQR: [',round(quantile(fig2$relab_nonbiological,0.25),2),', ',round(quantile(fig2$relab_nonbiological,0.75),2),']'))
+fig10b_impossible <- ggplot(fig2, aes(relab_gut, relab_impossible_clade)) +
+  geom_point(colour = "grey30") +
+  scale_x_continuous(limits = c(0, 1)) +
+  scale_y_continuous(limits = c(0, 1)) +
+  labs(x = "Combined relative abundance of gut taxa per sample",
+       y = "Combined relative abundance of 'impossible taxa' per sample") +
+  fig_theme
 
-#summary statistics for impossible taxa :
-print(round(median(fig2$relab_impossible_clade),2))
-print(paste0('IQR: [',round(quantile(fig2$relab_impossible_clade,0.25),2),', ',round(quantile(fig2$relab_impossible_clade,0.75),2),']'))
-print(paste0('Proportion of samples :',nrow(fig2[fig2$relab_impossible_clade>0,])/nrow(fig2)))
-```
+supp_fig10b_combined <- fig10b_contaminant | fig10b_impossible
 
-```{r}
-# print summary statistics:
-print(paste0('Number of samples meeting threshold 1: ',nrow(fig3[fig3$max_gut_coverage_X>0.05,])))
-print(paste0('Median taxa for  samples meeting threshold 1: ',median(fig3[fig3$max_gut_coverage_X>0.05,]$n_gut_breadth_verifiable)))
-print(paste0('Median taxa for  samples meeting threshold 1: ',quantile(fig3[fig3$max_gut_coverage_X>0.05,]$n_gut_breadth_verifiable,0.25)))
-print(paste0('Median taxa for  samples meeting threshold 1: ',quantile(fig3[fig3$max_gut_coverage_X>0.05,]$n_gut_breadth_verifiable,0.75)))
+ggsave(file.path(OUTDIR, "supp_fig10b_relab_nonbio_impossible.png"),
+       supp_fig10b_combined, width = 18, height = 10, dpi = 200)
+
+supp_fig10b_combined
 ```
 
 ```{r}
-cov_of <- function(reads) reads * bases_per_read / DEFAULT_GENOME
+fig2%>%
+  summarise(median=round(median(relab_nonbiological),2),
+            lower_q=round(quantile(relab_nonbiological,0.25),2),
+            upper_q=round(quantile(relab_nonbiological,0.75),2)
+            )
+```
+```{r}
+fig2%>%
+  summarise(median=round(median(relab_impossible_clade),2),
+            lower_q=round(quantile(relab_impossible_clade,0.25),2),
+            upper_q=round(quantile(relab_impossible_clade,0.75),2)
+            )
+```
 
-coverage_plt<-ggplot(data=fig3,aes(x=gut_reads+1,y=max_gut_coverage_X+1e-9))+
-  scale_x_log10()+
-  scale_y_log10()+
-  coord_cartesian(ylim=c(0.0001,50))+
-  labs(x='Total gut taxa reads per sample',
-       y='Coverage of best single gut taxon [X]')+
-  geom_point(col='grey10')+
-  geom_hline(yintercept=cov_of(T_DETECT),col="grey50",linetype=5)+
-  geom_text(label='Bacteria detectable [min 10 reads]',x=Inf,vjust=-0.5,hjust=1.02,size=5,y=log10(cov_of(T_DETECT)),col="grey50",inherit.aes = FALSE)+
+## 8. Supplementary Figure 10c
+
+```{r fig10c}
+taxa_counts <- fig3 %>%
+  select(detected     = n_gut_detected,
+         coverage = n_gut_coverage) %>%
+  pivot_longer(everything(), names_to = "threshold", values_to = "n_taxa") %>%
+  mutate(threshold = factor(threshold,
+                            levels = c("detected", "coverage")),
+         n_taxa = case_when(
+           n_taxa == 0  ~ "0",
+           n_taxa <= 5  ~ "5",
+           n_taxa <= 10  ~ "10",
+           n_taxa <= 20 ~ "20",
+           n_taxa <= 50 ~ "50",
+           n_taxa > 50  ~ "50+"
+         ),
+         n_taxa = factor(n_taxa,
+                         levels = c("0", "5", "10","20", "50", "50+"))) %>%
+  count(threshold, n_taxa, .drop = FALSE)
+
+fig10c_detectable <- ggplot(taxa_counts, aes(n_taxa,n, fill = n_taxa)) +
+  geom_bar(stat='identity',position='dodge',colour = "black") +
+  facet_grid(~threshold,
+             labeller=labeller(threshold=c('detected' = "Nominal read based detection\n[mapped reads > 10 ]",
+                              'coverage' = "Genome coverage based detection\n[mapped coverage > 0.05X]"))) +
+            
+               
   
-  geom_hline(yintercept=cov_of(T_QUANT_2X),  col = "steelblue", linetype = 2)+
-  geom_text(label='Detect 2-fold change [min 33 reads]',x=Inf,vjust=-0.5,hjust=1.02,size=5,y=log10(cov_of(T_QUANT_2X)),col="steelblue")+
-  geom_hline(yintercept=T_BREADTH_X,  col = "firebrick", linetype = 2)+
-  geom_text(label='Genome breadth-verifiable\n[min 667 reads]',x=Inf,vjust=0.5,hjust=1.02,y=log10(T_BREADTH_X),size=5,col="firebrick")+
-  theme_classic()+
-  theme(axis.title = element_text(size=20,face='bold'),
-        axis.text = element_text(size=16,face='bold'),
-        legend.position='none',
-        legend.title = element_text(size=20,face='bold'),
-        legend.text = element_text(size=16,face='bold')
+  scale_x_discrete(
+    breaks = c('0','5','10','20','50','50+'),
+    labels = c(`0` = "0",`5` = "0-5", `10` = "5-10", `20` = "10-20",
+               `50` = "20-50",`50+` = "50+")) +
+  scale_fill_manual(
+    values = c(`50+` = "grey0",  `50` = "grey25", `20` = "grey40",
+               `10` = "grey60", `5` = "grey75", `0` = "grey90"),
+    labels = c(`0` = "0",`5` = "0-5", `10` = "5-10", `20` = "10-20",
+               `50` = "20-50",`50+` = "50+")) +
+  labs(x = "Number of gut taxa identified in crypt", y = "Number of crypts", 
+       fill = NULL) +
+  fig_theme +
+  theme(legend.position = "none",
+        strip.text   = element_text(size = 20, face = "bold"),
+        strip.background=element_blank()
         )
 
-summary_taxa_dataected<-rbind(
-    detected      = table(factor(pmin(fig3$n_gut_detected, 5), levels = 0:5)),
-    quant_2fold   = table(factor(pmin(fig3$n_gut_quantifiable_2x, 5), levels = 0:5)),
-    usable_2fold  = table(factor(pmin(fig3$n_gut_usable_2x, 5), levels = 0:5))
-  )%>%
-  as.data.frame()%>%
-  rownames_to_column(var='threshold')%>%
-  
-  pivot_longer(cols=!contains('threshold'))
+ggsave(file.path(OUTDIR, "supp_fig10c_gut_taxa_coverage.png"),
+       fig10c_detectable, width = 16, height = 8, dpi = 150)
+```
 
-detectable_plt<-ggplot(data=summary_taxa_dataected,aes(x=threshold,fill=name,y=value))+
-  geom_bar(stat='identity',col='black')+
-  labs(x='Fraction of samples',y='',fill='Number of\ngut taxa')+
-  scale_x_discrete(breaks=c("detected","quant_2fold", "usable_2fold"),
-                   labels=c('Detected','Detect 2-fold\nchange','Genome Breadth verify')
-  )+
-  scale_fill_manual(breaks=c(5,4,3,2,1,0),
-                    labels=c('5+','4','3','2','1','0'),
-                    values=c('grey0','grey20','grey40','grey60','grey80','grey100'))+
-  theme_classic()+
-  theme(axis.title = element_text(size=20,face='bold'),
-        axis.text = element_text(size=16,face='bold'),
-        legend.position='bottom',
-        legend.title = element_text(size=20,face='bold'),
-        legend.text = element_text(size=16,face='bold')
-        )
-supp_fig10c_combined<-coverage_plt|detectable_plt+plot_layout(width=c(10,1))
-ggsave('./supp_fig10c_gut_taxa_coverage.png',supp_fig10c_combined,width=18,height=10,dpi=150)
+```{r}
+taxa_counts%>% 
+  pivot_wider(names_from='n_taxa',values_from='n')
+```
+```{r}
+taxa_counts%>% 
+  pivot_wider(names_from='n_taxa',values_from='n')%>%
+  mutate(across(contains(c("0", "5", "10","20", "50", "50+")),~percent(round((.x/989),2))))
+```
+```{r}
+fig3%>%filter(n_gut_coverage>0)%>%
+  summarise(median=median(n_gut_coverage),
+            lower_qr=quantile(n_gut_coverage,0.25),
+            upper_qr=quantile(n_gut_coverage,0.25),
+            max=max(n_gut_coverage))
 ```
