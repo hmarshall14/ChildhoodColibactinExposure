@@ -72,7 +72,7 @@ crypt_metadata %>%
 ```{r sex-summary}
 crypt_metadata %>%
   distinct(patient, sex) %>%
-  count(sex, name = "count") %>%
+  dplyr::count(sex, name = "count") %>%
   mutate(proportion = count / sum(count) * 100)
 ```
 
@@ -82,7 +82,7 @@ crypt_metadata %>%
 # Expected: Denmark = 17 | UK = 73
 crypt_metadata %>%
   distinct(patient, nationality) %>%
-  count(nationality, name = "patients")
+  dplyr::count(nationality, name = "patients")
 ```
 
 ### Breakdown by cohort

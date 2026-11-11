@@ -907,7 +907,7 @@ lee_six_branch_classification <- classify_branches(
   indeterminant_max_length  = 43
 )
 
-count(lee_six_branch_classification, branch_status)
+dplyr::count(lee_six_branch_classification, branch_status)
 ```
 
 ## Timepoints and swimmer-plot data
